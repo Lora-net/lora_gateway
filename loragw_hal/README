@@ -1,0 +1,154 @@
+Lora Gateway HAL
+================
+
+1. Introduction
+---------------
+
+The Lora Gateway Hardware Abstraction Layer is a C library that allow you to use a Semtech Lora gateway hardware through a reduced number of high level C functions to configure the hardware, send and receive packets.
+
+The Semtech Lora gateway is a digital multi-channel multi-standard packet radio used to send and receive packets wirelessly using Lora, FSK or GFSK modulations.
+
+
+2. Components of the library
+----------------------------
+
+The library is composed of 4 modules:
+
+* loragw_hal
+* loragw_reg
+* loragw_spi
+* loragw_aux
+
+The library also contains 3 test program to demonstrate code use and check functionality.
+ 
+### 2.1. loragw_hal ###
+
+This is the main module and contains the high level functions to configure and use the Lora gateway:
+
+* lgw_rxrf_setconf, to set the configuration of the radio channels
+* lgw_rxif_setconf, to set the configuration of the IF+modem channels
+* lgw_start, to apply the set configuration to the hardware and start it
+* lgw_stop, to stop the hardware
+* lgw_receive, to fetch packets if any was received
+* lgw_send, to send a single packet (non-blocking, see warning in usage section)
+
+For an standard application, include only this module.
+The use of this module is detailed on the usage section.
+
+### 2.2. loragw_reg ###
+
+This module is used to access to the Lora gateway registers by name instead of by address:
+
+* lgw_connect, to initialise and check the connection with the hardware
+* lgw_disconnect, to disconnect the hardware
+* lgw_soft_reset, to reset the whole hardware by resetting the register array
+* lgw_reg_check, to check all registers vs. their default value and output the result to a file
+* lgw_reg_r, read a named register
+* lgw_reg_w, write a named register
+* lgw_reg_rb, read a name register in burst
+* lgw_reg_wb, write a named register in burst
+
+This module handles pagination, read-only registers protection, multi-byte registers management, signed registers management, read-modify-write routines for sub-byte registers and read/write burst fragmentation to respect SPI maximum burst length constraints.
+
+It make the code much easier to read and to debug.
+Moreover, if registers are relocated between different hardware revisions but keep the same function, the code written using register names can be reused "as is".
+
+If you need access to all the registers, include this module in your application.
+
+**/!\ Warning** please be sure to have a good understanding of the Lora gateway inner working before accessing the internal registers directly.
+
+### 2.3. loragw_spi ###
+
+This module contains the functions to access the Lora gateway register array through the SPI interface:
+
+* lgw_spi_r to read one byte
+* lgw_spi_w to write one byte
+* lgw_spi_rb to read two bytes or more
+* lgw_spi_wb to write two bytes or more
+ 
+Please *do not* include that module directly into your application.
+
+**/!\ Warning** Accessing the Lora gateway register array without the checks and safety provided by the functions in loragw_reg is not recommended.
+
+### 2.4. loragw_aux ###
+
+This module contains a single host-dependant function wait_ms to pause for a defined amount of milliseconds.
+
+The procedure to start and configure the Lora gateway hardware contained in the loragw_hal module requires to wait for several milliseconds at certain steps, typically to allow for supply voltages or clocks to stabilize after been switched on.
+
+An accuracy of 1 ms or less is ideal.
+If your system doesn't allow that level of accuracy, make sure that the actual delay is *longer* that the time specified when the function is called (ie. wait_ms(X) *MUST NOT* before X milliseconds under any circumstance).
+
+If the minimum delays are not guaranteed during the configuration and start procedure, the hardware might not work at nominal performance.
+Most likely, it will not work at all.
+
+
+3. Software dependencies
+------------------------
+
+The library is written following ANSI C conventions but using C99 explicit length data type for all data exchanges with hardware and for parameters.
+
+The loragw_aux module contains POSIX dependant functions for millisecond accuracy pause.
+For embedded platforms, the function could be rewritten using hardware times.
+
+All modules use the fprintf(stderr,...) function to display debug diagnostic messages if the DEBUG flag is defined (eg. for GCC, add the -DDEBUG flag).
+
+
+4. Hardware dependencies
+------------------------
+
+The loragw_reg and loragw_hal are written for a specific version on the Semtech hardware.
+The library will not work if there is a mismatch between the hardware version and the library version.
+You can use the test program test_loragw_reg to check if the hardware registers match their software declaration.
+
+loragw_spi contains 4 SPI functions (read, write, burst read, burst write) that are platform-dependant.
+The functions must rewritten depending on the SPI bridge you use:
+
+* SPI master matched to the Linux SPI device driver (provided)
+* SPI over USB using FTDI components (not provided)
+* native SPI using a microcontroller peripheral (not provided)
+
+You can use the test program test_loragw_spi to check with a logic analyser that the SPI communication is working
+
+
+5. Usage
+--------
+
+To use the HAL in your application, you must follow some basic rules:
+
+* configure the radios path and IF+modem path before starting the radio
+* the configuration is only transferred to hardware when you call the *start* function
+* you cannot receive packets until one (or +) radio is enabled AND one (or +) IF+modem part is enabled AND the gateway is started
+* you cannot send packets until one (or +) radio is enabled AND the gateway is started
+* you must stop the gateway before changing the configuration
+
+A typical application flow for using the HAL is the following:
+
+<configure the radios and IF+modems>
+<start the Lora gateway>
+loop {
+	<fetch packets that were received by the gateway>
+	<process, store and/or forward received packets>
+	<send packets through the gateway>
+}
+<stop the gateway>
+
+To debug your application, it might help to compile the loragw_hal function with the DEBUG flag defined.
+It then send a lot of details, including detailed error messages to *stderr*.
+
+
+**/!\ Warning** The lgw_send function is non-blocking and returns while the Lora gateway is still sending the packet, or even before the packet has started to be transmitted if the packet is triggered on a future event.
+While a packet is emitted, no packet can be received (limitation intrinsic to most radio frequency systems).
+
+Your application *must* take into account the time it takes to send a packet.
+
+Trying to send a packet while the previous packet has not finished being send will result in the previous packet not being sent or being sent only partially (resulting in a CRC error in the receiver).
+
+
+6. License
+----------
+
+To Be Defined.
+
+
+*EOF*
