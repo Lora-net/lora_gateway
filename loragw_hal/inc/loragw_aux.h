@@ -1,13 +1,13 @@
 /*
- / _____)             _              | |    
-( (____  _____ ____ _| |_ _____  ____| |__  
+ / _____)             _              | |
+( (____  _____ ____ _| |_ _____  ____| |__
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
     ©2013 Semtech-Cycleo
 
 Description:
-    Lora gateway Hardware Abstraction Layer
+	Lora gateway Hardware Abstraction Layer
 */
 
 

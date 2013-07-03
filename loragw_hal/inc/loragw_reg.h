@@ -1,16 +1,16 @@
 /*
- / _____)             _              | |    
-( (____  _____ ____ _| |_ _____  ____| |__  
+ / _____)             _              | |
+( (____  _____ ____ _| |_ _____  ____| |__
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
     ©2013 Semtech-Cycleo
 
 Description:
-    Functions used to handle a single Lora gateway.
-    Registers are addressed by name.
-    Multi-bytes registers are handled automatically.
-    Read-modify-write is handled automatically.
+	Functions used to handle a single Lora gateway.
+	Registers are addressed by name.
+	Multi-bytes registers are handled automatically.
+	Read-modify-write is handled automatically.
 */
 
 
@@ -20,14 +20,14 @@ Description:
 /* -------------------------------------------------------------------------- */
 /* --- DEPENDANCIES --------------------------------------------------------- */
 
-#include <stdint.h>     /* C99 types */
-#include <stdbool.h>    /* bool type */
+#include <stdint.h>		/* C99 types */
+#include <stdbool.h>	/* bool type */
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC CONSTANTS ----------------------------------------------------- */
 
-#define LGW_REG_SUCCESS  0
-#define LGW_REG_ERROR   -1
+#define LGW_REG_SUCCESS	 0
+#define LGW_REG_ERROR	-1
 
 /*
 auto generated register mapping for C code : 24-Jun-2013 20:29:09
