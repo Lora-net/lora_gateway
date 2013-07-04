@@ -41,7 +41,8 @@ Description:
 	#define CHECK_NULL(a)				if(a==NULL){return LGW_HAL_ERROR;}
 #endif
 
-#define IF_HZ_TO_REG(f) (f << 5)/15625
+#define IF_HZ_TO_REG(f)		(f << 5)/15625
+#define	SET_PPM_ON(bw,dr)	(((bw == BW_125KHZ) && ((dr == DR_LORA_SF11) || (dr == DR_LORA_SF12))) || ((bw == BW_250KHZ) && (dr == DR_LORA_SF12)))
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
@@ -110,8 +111,7 @@ static int32_t if_freq[LGW_IF_CHAIN_NB] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* rel
 static uint8_t lora_multi_sfmask[LGW_MULTI_NB] = {0, 0, 0, 0}; /* enables SF for Lora 'multi' modems */
 static uint8_t lora_rx_bw = 0; /* for the Lora standalone modem(s) */
 static uint16_t lora_rx_sf = 0; /* for the Lora standalone modem(s) */
-static uint8_t fsk_rx_bw = 0; /* for the FSK standalone modem(s) */
-static uint8_t fsk_rx_sf = 0; /* for the FSK standalone modem(s) */
+static uint8_t lora_rx_ppm_offset = 0;  /* for the Lora standalone modem(s) */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
@@ -269,7 +269,7 @@ uint8_t sx125x_read(uint8_t channel, uint8_t addr) {
 int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 	uint32_t part_int;
 	uint32_t part_frac;
-	int i = 0;
+	int cpt_attempts = 0;
 	
 	if (rf_chain >= LGW_RF_CHAIN_NB) {
 		DEBUG_MSG("ERROR: INVALID RF_CHAIN\n");
@@ -297,14 +297,14 @@ int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 	
 	/* start and PLL lock */
 	do {
-		if (i >= PLL_LOCK_MAX_ATTEMPTS) {
+		if (cpt_attempts >= PLL_LOCK_MAX_ATTEMPTS) {
 			DEBUG_MSG("ERROR: FAIL TO LOCK PLL\n");
 			return -1;
 		}
 		sx125x_write(rf_chain, 0x00, 1); /* enable Xtal oscillator */
 		sx125x_write(rf_chain, 0x00, 3); /* Enable RX (PLL+FE) */
-		++i;
-		DEBUG_PRINTF("Note: SX1257 #%d PLL start (attempt %d)\n", rf_chain, i);
+		++cpt_attempts;
+		DEBUG_PRINTF("Note: SX1257 #%d PLL start (attempt %d)\n", rf_chain, cpt_attempts);
 		wait_ms(1);
 	} while(sx125x_read(rf_chain, 0x11) & 0x02 == 0);
 	
@@ -356,7 +356,6 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_SYNCH_DETECT_TH,1); /* default 1 */
 	// lgw_reg_w(LGW_ZERO_PAD,0); /* default 0 */
 	lgw_reg_w(LGW_SNR_AVG_CST,3); /* default 2 */
-	// lgw_reg_w(LGW_PPM_OFFSET,0); /* default 0 */
 	// lgw_reg_w(LGW_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
 	// lgw_reg_w(LGW_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
 	// lgw_reg_w(LGW_PREAMBLE_FINE_TIMING_GAIN,1); /* default 1 */
@@ -376,7 +375,6 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_GAIN,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_SYNCH_DETECT_TH,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_ZERO_PAD,0); /* default 0 */
-	// lgw_reg_w(LGW_MBWSSF_PPM_OFFSET,0); /* default 0 */
 	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
 	// lgw_reg_w(LGW_MBWSSF_ONLY_CRC_EN,1); /* default 1 */
@@ -427,8 +425,6 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
-	int i, j; /* tmp variables, to shorten long 'if' lines */
-	
 	/* check if the gateway is running */
 	if (lgw_is_started == true) {
 		DEBUG_MSG("ERROR: GATEWAY IS RUNNING, STOP IT BEFORE TOUCHING CONFIGURATION\n");
@@ -469,22 +465,32 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 				return LGW_HAL_ERROR;
 			}
 			/* fill default parameters if needed */
-			i = (conf.bandwidth == 0) ? BW_250KHZ : conf.bandwidth;
-			j = (conf.datarate == 0) ? DR_LORA_SF9 : conf.datarate;
+			if (conf.bandwidth == 0) {
+				conf.bandwidth = BW_250KHZ;
+			}
+			if (conf.datarate == 0) {
+				conf.datarate = DR_LORA_SF9;
+			}
 			/* check BW & DR */
-			if ((i != BW_125KHZ) && (i != BW_250KHZ) && (i != BW_500KHZ)) {
+			if (!IS_LORA_BW(conf.bandwidth)) {
 				DEBUG_MSG("ERROR: BANDWIDTH NOT SUPPORTED BY LORA_STD IF CHAIN\n");
 				return LGW_HAL_ERROR;
 			}
-			if ((j!=DR_LORA_SF7)&&(j!=DR_LORA_SF8)&&(j!=DR_LORA_SF9)&&(j!=DR_LORA_SF10)&&(j!=DR_LORA_SF11)&&(j!=DR_LORA_SF12)) {
+			if (!IS_LORA_STD_DR(conf.datarate)) {
 				DEBUG_MSG("ERROR: DATARATE NOT SUPPORTED BY LORA_STD IF CHAIN\n");
 				return LGW_HAL_ERROR;
 			}
 			/* set internal configuration  */
 			if_enable[if_chain] = conf.enable;
 			if_freq[if_chain] = conf.freq_hz;
-			lora_rx_bw = i;
-			lora_rx_sf = j;
+			lora_rx_bw = conf.bandwidth;
+			lora_rx_sf = conf.datarate;
+			if (SET_PPM_ON(conf.bandwidth, conf.datarate)) {
+				lora_rx_ppm_offset = 1;
+			} else {
+				lora_rx_ppm_offset = 0;
+			}
+			
 			DEBUG_PRINTF("Note: Lora 'std' if_chain %d configured; en:%d freq:%d bw:%d dr:%d\n", if_chain, if_enable[if_chain], if_freq[if_chain], lora_rx_bw, lora_rx_sf);
 			break;
 		
@@ -494,14 +500,15 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 				return LGW_HAL_ERROR;
 			}
 			/* fill default parameters if needed */
-			i = (conf.bandwidth == 0) ? BW_125KHZ : conf.bandwidth;
-			j = (conf.datarate == 0) ? DR_LORA_MULTI : conf.datarate;
+			if (conf.datarate == 0) {
+				conf.datarate = DR_LORA_MULTI;
+			}
 			/* check BW & DR */
-			if (i != BW_125KHZ) {
+			if ((conf.bandwidth != BW_125KHZ) && (conf.bandwidth != 0)) { /* 0 is for default */
 				DEBUG_MSG("ERROR: BANDWIDTH NOT SUPPORTED BY LORA_MULTI IF CHAIN\n");
 				return LGW_HAL_ERROR;
 			}
-			if ((j & ~DR_LORA_MULTI) != 0) { /* ones outside of DR_LORA_MULTI bitmask -> not a combination of Lora datarates */
+			if (!IS_LORA_MULTI_DR(conf.datarate)) {
 				DEBUG_MSG("ERROR: DATARATE(S) NOT SUPPORTED BY LORA_MULTI IF CHAIN\n");
 				return LGW_HAL_ERROR;
 			}
@@ -513,7 +520,7 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 				default: DEBUG_MSG("ERROR: IMPROPRER IF_CHAIN/RF_CHAIN ASSOCIATION\n");
 			}
 			if_freq[if_chain] = conf.freq_hz;
-			lora_multi_sfmask[if_chain] = (uint8_t)j;
+			lora_multi_sfmask[if_chain] = (uint8_t)(0x007F & conf.datarate);
 			DEBUG_PRINTF("Note: Lora 'multi' if_chain %d configured; en:%d freq:%d SF_mask:0x%02x\n", if_chain, if_enable[if_chain], if_freq[if_chain], lora_multi_sfmask[if_chain]);
 			DEBUG_PRINTF("Note: rf/if switch state 0x%02x\n", if_rf_switch);
 			break;
@@ -534,7 +541,6 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 int lgw_start(void) {
 	int reg_stat;
 	int32_t read_value;
-	int i, j;
 	
 	if (lgw_is_started == true) {
 		DEBUG_MSG("Note: Lora Gateway already started, restarting it now\n");
@@ -593,7 +599,6 @@ int lgw_start(void) {
 	
 	/* load adjusted parameters */
 	lgw_constant_adjust();
-	// lgw_reg_w(LGW_PPM_OFFSET,0); /* default 0 */
 	
 	/* configure Lora 'multi' (aka. Lora 'sensor' channels */
 	lgw_reg_w(LGW_RADIO_SELECT, if_rf_switch); /* IF mapping to radio A/B (per bit, 0=A, 1=B) */
@@ -608,7 +613,7 @@ int lgw_start(void) {
 	lgw_reg_w(LGW_CORR2_DETECT_EN, (if_enable[2] == true) ? lora_multi_sfmask[2] : 0); /* default 0 */
 	lgw_reg_w(LGW_CORR3_DETECT_EN, (if_enable[3] == true) ? lora_multi_sfmask[3] : 0); /* default 0 */
 	
-	lgw_reg_w(LGW_PPM_OFFSET, 0x00); /* if the threshold is 16ms, use 0x60 to enable ppm_offset for SF12 and SF11 */
+	lgw_reg_w(LGW_PPM_OFFSET, 0x60); /* if the threshold is 16ms, use 0x60 to enable ppm_offset for SF12 and SF11 @125kHz*/
 	
 	lgw_reg_w(LGW_CONCENTRATOR_MODEM_ENABLE,1); /* default 0 */
 	
@@ -630,7 +635,7 @@ int lgw_start(void) {
 			case DR_LORA_SF12: lgw_reg_w(LGW_MBWSSF_RATE_SF,12); break;
 			default: DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_sf); return LGW_HAL_ERROR;
 		}
-		lgw_reg_w(LGW_MBWSSF_PPM_OFFSET,0); /* default 0 */
+		lgw_reg_w(LGW_MBWSSF_PPM_OFFSET, lora_rx_ppm_offset); /* default 0 */
 		lgw_reg_w(LGW_MBWSSF_MODEM_ENABLE, 1); /* default 0 */
 	} else {
 		lgw_reg_w(LGW_MBWSSF_MODEM_ENABLE, 0);
@@ -674,7 +679,6 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 	int s; /* size of the payload, uses to address metadata */
 	int ifmod; /* type of if_chain/modem a packet was received by */
 	int stat_fifo; /* the packet status as indicated in the FIFO */
-	int j;
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -839,24 +843,20 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		DEBUG_PRINTF("ERROR: FREQUENCY %d LOWER THAN LOWER LIMIT %d OF RF_CHAIN %d\n", pkt_data.freq_hz, rf_tx_lowfreq[pkt_data.rf_chain], pkt_data.rf_chain);
 		return LGW_HAL_ERROR;
 	}
-	i = pkt_data.tx_mode;
-	if ((i != IMMEDIATE) && (i != TIMESTAMPED) && (i != ON_GPS)) {
+	if (!IS_TX_MODE(pkt_data.tx_mode)) {
 		DEBUG_MSG("ERROR: TX_MODE NOT SUPPORTED\n");
 		return LGW_HAL_ERROR;
 	}
 	if (pkt_data.modulation == MOD_LORA) {
-		i = pkt_data.bandwidth;
-		if ((i != BW_125KHZ) && (i != BW_250KHZ) && (i != BW_500KHZ)) {
+		if (!IS_LORA_BW(pkt_data.bandwidth)) {
 			DEBUG_MSG("ERROR: BANDWIDTH NOT SUPPORTED BY LORA TX\n");
 			return LGW_HAL_ERROR;
 		}
-		i = pkt_data.datarate;
-		if ((i!=DR_LORA_SF7)&&(i!=DR_LORA_SF8)&&(i!=DR_LORA_SF9)&&(i!=DR_LORA_SF10)&&(i!=DR_LORA_SF11)&&(i!=DR_LORA_SF12)) {
+		if (!IS_LORA_STD_DR(pkt_data.datarate)) {
 			DEBUG_MSG("ERROR: DATARATE NOT SUPPORTED BY LORA TX\n");
 			return LGW_HAL_ERROR;
 		}
-		i = pkt_data.coderate;
-		if ((i != CR_LORA_4_5) && (i != CR_LORA_4_6) && (i != CR_LORA_4_7) && (i != CR_LORA_4_8)) {
+		if (!IS_LORA_CR(pkt_data.coderate)) {
 			DEBUG_MSG("ERROR: CODERATE NOT SUPPORTED BY LORA TX\n");
 			return LGW_HAL_ERROR;
 		}
@@ -940,12 +940,13 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[14] = 0;
 		buff[15] = 0;
 		
-		/* setting TX polarity */
-		if (pkt_data.invert_pol == false) {
-			lgw_reg_w(LGW_TX_SWAP_IQ,1); /* configure TX in "normal" polarity */
+		/* TODO: need a metadata for PPM offset */
+		if (SET_PPM_ON(pkt_data.bandwidth,pkt_data.datarate)) {
+			lgw_reg_w(LGW_TX_PPM_OFFSET, 1);
 		} else {
-			lgw_reg_w(LGW_TX_SWAP_IQ,0); /* configure TX in "orthogonal" polarity */
+			lgw_reg_w(LGW_TX_PPM_OFFSET, 0);
 		}
+		
 	} else {
 		DEBUG_MSG("ERROR: ONLY LORA TX SUPPORTED FOR NOW\n");
 		return LGW_HAL_ERROR;

@@ -152,7 +152,6 @@ int main(int argc, char **argv)
 	txs.coderate = CR_LORA_4_5;
 	txs.payload = "TX.TEST.LORA.GATEWAY";
 	txs.size = 20;
-	txs.invert_pol = false;
 	
 	/* connect, configure and start the Lora gateway */
 	lgw_start();
@@ -226,7 +225,7 @@ int main(int argc, char **argv)
 		}
 		
 		/* send a packet every X loop */
-		if (tx_cnt >= 5) {
+		if (tx_cnt >= 32) {
 			tx_cnt = 0;
 			
 			txs.rf_chain = tx_path; /* alternate between path A and B */

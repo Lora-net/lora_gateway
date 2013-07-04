@@ -21,6 +21,15 @@ Description:
 #include <stdbool.h>	/* bool type */
 
 /* -------------------------------------------------------------------------- */
+/* --- PUBLIC MACROS -------------------------------------------------------- */
+
+#define IS_LORA_BW(bw)			((bw == BW_125KHZ) || (bw == BW_250KHZ) || (bw == BW_500KHZ))
+#define IS_LORA_STD_DR(dr)		((dr == DR_LORA_SF7) || (dr == DR_LORA_SF8) || (dr == DR_LORA_SF9) || (dr == DR_LORA_SF10) || (dr == DR_LORA_SF11) || (dr == DR_LORA_SF12))
+#define IS_LORA_MULTI_DR(dr)	((dr & ~DR_LORA_MULTI) == 0) /* ones outside of DR_LORA_MULTI bitmask -> not a combination of Lora datarates */
+#define IS_LORA_CR(cr)			((cr == CR_LORA_4_5) || (cr == CR_LORA_4_6) || (cr == CR_LORA_4_7) || (cr == CR_LORA_4_8))
+#define	IS_TX_MODE(mode)		((mode == IMMEDIATE) || (mode == TIMESTAMPED) || (mode == ON_GPS))
+
+/* -------------------------------------------------------------------------- */
 /* --- PUBLIC CONSTANTS ----------------------------------------------------- */
 
 /* return status code */
@@ -173,7 +182,6 @@ struct lgw_pkt_tx_s {
 	int8_t		rf_power;	/*!> TX power, in dBm */
 	uint8_t		modulation; /*!> modulation to use for the packet */
 	uint8_t		bandwidth;	/*!> modulation bandwidth (Lora only) */
-	bool		invert_pol;	/*!> invert signal polarity, for orthogonal downlinks (Lora only) */
 	uint16_t	f_dev;		/*!> frequency deviation (FSK only) */
 	uint16_t	datarate;	/*!> TX datarate */
 	uint8_t		coderate;	/*!> error-correcting code of the packet */
