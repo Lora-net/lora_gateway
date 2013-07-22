@@ -70,7 +70,7 @@ const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
 #define		SX1257_RX_LNA_GAIN		1	/* 1 to 6, 1 highest gain */
 #define		SX1257_RX_BB_GAIN		12	/* 0 to 15 , 15 highest gain */
 #define		SX1257_RX_ADC_BW		7	/* 0 to 7, 2:100<BW<200, 5:200<BW<400,7:400<BW (kHz) */
-#define		SX1257_RX_ADC_TRIM		7	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
+#define		SX1257_RX_ADC_TRIM		6	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
 #define		SX1257_RXBB_BW			2
 
 #define		RSSI_OFFSET_LORA_MULTI	-100.0 // TODO: need to find proper value with calibration
@@ -613,7 +613,7 @@ int lgw_start(void) {
 	lgw_reg_w(LGW_CORR2_DETECT_EN, (if_enable[2] == true) ? lora_multi_sfmask[2] : 0); /* default 0 */
 	lgw_reg_w(LGW_CORR3_DETECT_EN, (if_enable[3] == true) ? lora_multi_sfmask[3] : 0); /* default 0 */
 	
-	lgw_reg_w(LGW_PPM_OFFSET, 0x60); /* if the threshold is 16ms, use 0x60 to enable ppm_offset for SF12 and SF11 @125kHz*/
+	lgw_reg_w(LGW_PPM_OFFSET, 0x60); /* as the threshold is 16ms, use 0x60 to enable ppm_offset for SF12 and SF11 @125kHz*/
 	
 	lgw_reg_w(LGW_CONCENTRATOR_MODEM_ENABLE,1); /* default 0 */
 	
@@ -895,12 +895,12 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		
 		/* metadata 9, CRC, Lora CR & SF */
 		switch (pkt_data.datarate) {
-			case DR_LORA_SF7: buff[9] |= 7; break;
-			case DR_LORA_SF8: buff[9] |= 8; break;
-			case DR_LORA_SF9: buff[9] |= 9; break;
-			case DR_LORA_SF10: buff[9] |= 10; break;
-			case DR_LORA_SF11: buff[9] |= 11; break;
-			case DR_LORA_SF12: buff[9] |= 12; break;
+			case DR_LORA_SF7: buff[9] = 7; break;
+			case DR_LORA_SF8: buff[9] = 8; break;
+			case DR_LORA_SF9: buff[9] = 9; break;
+			case DR_LORA_SF10: buff[9] = 10; break;
+			case DR_LORA_SF11: buff[9] = 11; break;
+			case DR_LORA_SF12: buff[9] = 12; break;
 			default: DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", pkt_data.datarate);
 		}
 		switch (pkt_data.coderate) {
@@ -917,15 +917,21 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		/* metadata 10, payload size */
 		buff[10] = pkt_data.size;
 		
-		/* metadata 11, implicit header & modulation bandwidth */
+		/* metadata 11, implicit header, modulation bandwidth, PPM offset & polarity */
 		switch (pkt_data.bandwidth) {
-			case BW_125KHZ: buff[11] |= 0; break;
-			case BW_250KHZ: buff[11] |= 1; break;
-			case BW_500KHZ: buff[11] |= 2; break;
+			case BW_125KHZ: buff[11] = 0; break;
+			case BW_250KHZ: buff[11] = 1; break;
+			case BW_500KHZ: buff[11] = 2; break;
 			default: DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", pkt_data.bandwidth);
 		}
 		if (pkt_data.no_header == true) {
 			buff[11] |= 0x04; /* set 'implicit header' bit */
+		}
+		if (SET_PPM_ON(pkt_data.bandwidth,pkt_data.datarate)) {
+			buff[11] |= 0x08; /* set 'PPM offset' bit at 1 */
+		}
+		if (pkt_data.invert_pol == true) {
+			buff[11] |= 0x10; /* set 'TX polarity' bit at 1 */
 		}
 		
 		/* metadata 12 & 13, Lora preamble size */
@@ -939,13 +945,6 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		/* metadata 14 & 15, not used */
 		buff[14] = 0;
 		buff[15] = 0;
-		
-		/* TODO: need a metadata for PPM offset */
-		if (SET_PPM_ON(pkt_data.bandwidth,pkt_data.datarate)) {
-			lgw_reg_w(LGW_TX_PPM_OFFSET, 1);
-		} else {
-			lgw_reg_w(LGW_TX_PPM_OFFSET, 0);
-		}
 		
 	} else {
 		DEBUG_MSG("ERROR: ONLY LORA TX SUPPORTED FOR NOW\n");
@@ -982,5 +981,40 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	
 	return LGW_HAL_SUCCESS;
 }
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+int lgw_status(uint8_t select, uint8_t *code) {
+	int32_t read_value;
+	
+	/* check input variables */
+	CHECK_NULL(code);
+	
+	if (select == TX_STATUS) {
+		lgw_reg_r(LGW_TX_STATUS, &read_value);
+		if (lgw_is_started == false) {
+			*code = TX_OFF;
+		} else if ((read_value & 0x70) == 0) {
+			*code = TX_EMPTY;
+		} else if ((read_value & 0x10) != 0) {
+			*code = TX_DELAYED;
+		} else if ((read_value & 0x60) != 0) {
+			*code = TX_EMITTING;
+		} else {
+			*code = TX_STATUS_UNKNOWN;
+		}
+		return LGW_HAL_SUCCESS;
+		
+	} else if (select == RX_STATUS) {
+		*code = RX_STATUS_UNKNOWN; /* todo */
+		return LGW_HAL_SUCCESS;
+		
+	} else {
+		DEBUG_MSG("ERROR: SELECTION INVALID, NO STATUS TO RETURN\n");
+		return LGW_HAL_ERROR;
+	}
+	
+}
+
 
 /* --- EOF ------------------------------------------------------------------ */

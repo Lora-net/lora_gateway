@@ -125,6 +125,23 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 //#define GPS_DELAYED	  4
 //#define EVENT_DELAYED	  5
 
+/* values available for 'select' in the status function */
+#define	TX_STATUS		1
+#define	RX_STATUS		2
+
+/* status code for TX_STATUS */
+#define TX_STATUS_UNKNOWN	0
+#define	TX_OFF				1	/* TX modem disabled, it will ignore commands */
+#define TX_EMPTY			2	/* TX modem is free, ready to receive a command */
+#define TX_DELAYED			3	/* TX modem is loaded, ready to send the packet after an event and/or delay */
+#define TX_EMITTING			4	/* TX modem is emitting */
+
+/* status code for RX_STATUS */
+#define RX_STATUS_UNKNOWN	0
+#define RX_OFF				1	/* RX modem is disabled, it will ignore commands  */
+#define RX_ON				2	/* RX modem is receiving */
+#define RX_SUSPENDED		3	/* RX is suspended while a TX is ongoing */
+
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC TYPES --------------------------------------------------------- */
 
@@ -182,6 +199,7 @@ struct lgw_pkt_tx_s {
 	int8_t		rf_power;	/*!> TX power, in dBm */
 	uint8_t		modulation; /*!> modulation to use for the packet */
 	uint8_t		bandwidth;	/*!> modulation bandwidth (Lora only) */
+	bool		invert_pol;	/*!> invert signal polarity, for orthogonal downlinks (Lora only) */
 	uint16_t	f_dev;		/*!> frequency deviation (FSK only) */
 	uint16_t	datarate;	/*!> TX datarate */
 	uint8_t		coderate;	/*!> error-correcting code of the packet */
@@ -237,6 +255,14 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data);
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
 int lgw_send(struct lgw_pkt_tx_s pkt_data);
+
+/**
+@brief Give the the status of different part of the Lora gateway
+@param select is used to select what status we want to know 
+@param code is used to return the status code
+@return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
+*/
+int lgw_status(uint8_t select, uint8_t *code);
 
 #endif
 

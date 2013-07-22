@@ -77,9 +77,11 @@ int main(int argc, char **argv)
 	int nb_pkt;
 	uint8_t x;
 	
-	int tx_cnt = 0;
+	uint32_t tx_cnt = 0;
+	unsigned long loop_cnt = 0;
 	int tx_path = 0;
 	struct lgw_pkt_tx_s txs;
+	uint8_t status_var = 0;
 	
 	/* configure signal handling */
 	sigemptyset(&sigact.sa_mask);
@@ -142,6 +144,10 @@ int main(int argc, char **argv)
 	ifconf.datarate = DR_LORA_SF10;
 	lgw_rxif_setconf(8, ifconf); /* chain 8: bleeper channel 4, SF10 only */
 	
+	
+	/* load the TX payload */
+	strcpy((char *)txbuf, "TX.TEST.LORA.GW.????" );
+		
 	/* set configuration for TX packet */
 	memset(&txs, 0, sizeof(txs));
 	txs.freq_hz = 866250000;
@@ -150,13 +156,16 @@ int main(int argc, char **argv)
 	txs.bandwidth = BW_250KHZ;
 	txs.datarate = DR_LORA_SF10;
 	txs.coderate = CR_LORA_4_5;
-	txs.payload = "TX.TEST.LORA.GATEWAY";
+	txs.payload = txbuf;
 	txs.size = 20;
+	txs.rf_chain = 1;
 	
 	/* connect, configure and start the Lora gateway */
 	lgw_start();
 	
 	while ((quit_sig != 1) && (exit_sig != 1)) {
+		loop_cnt++;
+		
 		/* fetch N packets */
 		nb_pkt = lgw_receive(ARRAY_SIZE(rxpkt), rxpkt);
 		
@@ -225,16 +234,23 @@ int main(int argc, char **argv)
 		}
 		
 		/* send a packet every X loop */
-		if (tx_cnt >= 32) {
-			tx_cnt = 0;
-			
-			txs.rf_chain = tx_path; /* alternate between path A and B */
-			i = lgw_send(txs);
-			printf("Packet sent, rf path %d, status %d\n", txs.rf_chain, i);
-			
-			tx_path = (tx_path+1) % 2;
-		} else {
+		if (loop_cnt%16 == 0) {
+			/* 32b counter in the payload, big endian */
+			txbuf[16] = 0xff & (tx_cnt >> 24);
+			txbuf[17] = 0xff & (tx_cnt >> 16);
+			txbuf[18] = 0xff & (tx_cnt >> 8);
+			txbuf[19] = 0xff & tx_cnt;
+			i = lgw_send(txs); /* non-blocking scheduling of TX packet */
+			j = 0;
+			printf("Sending packet #%d, rf path %d, return %d\nstatus -> ", tx_cnt, txs.rf_chain, i);
+			do {
+				++j;
+				wait_ms(100);
+				lgw_status(TX_STATUS, &status_var); /* get TX status */
+				printf("%d:", status_var);
+			} while ((status_var != TX_EMPTY) && (j < 100));
 			++tx_cnt;
+			printf("\nTX finished\n");
 		}
 	}
 	
@@ -243,7 +259,7 @@ int main(int argc, char **argv)
 		lgw_stop();
 	}
 	
-	printf("End of test for loragw_hal.c\n");
+	printf("\nEnd of test for loragw_hal.c\n");
 	return 0;
 }
 
