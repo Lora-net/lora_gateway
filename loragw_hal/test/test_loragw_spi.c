@@ -29,6 +29,7 @@ Description:
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
 #define BURST_TEST_SIZE 2500 /* >> LGW_BURST_CHUNK */
+#define TIMING_REPEAT	1	 /* repeat transactions multiple times for timing characterisation */
 
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
@@ -36,8 +37,8 @@ Description:
 int main(int argc, char **argv)
 {
 	int i;
-	int spi_device;
-	uint8_t data;
+	void *spi_target = NULL;
+	uint8_t data = 0;
 	uint8_t dataout[BURST_TEST_SIZE];
 	uint8_t datain[BURST_TEST_SIZE];
 	
@@ -47,20 +48,31 @@ int main(int argc, char **argv)
 	}
 	
 	printf("Beginning of test for loragw_spi.c\n");
-	lgw_spi_open(&spi_device);
+	lgw_spi_open(&spi_target);
 	
 	/* normal R/W test */
-	lgw_spi_w(spi_device, 0xAA, 0x96);
-	lgw_spi_r(spi_device, 0x55, &data);
+	for (i = 0; i < TIMING_REPEAT; ++i)
+		lgw_spi_w(spi_target, 0xAA, 0x96);
+	for (i = 0; i < TIMING_REPEAT; ++i)
+		lgw_spi_r(spi_target, 0x55, &data);
 	
-	/* burst R/W test */
-	lgw_spi_wb(spi_device, 0x55, dataout, ARRAY_SIZE(dataout));
-	lgw_spi_rb(spi_device, 0x55, datain, ARRAY_SIZE(datain));
+	/* burst R/W test, small bursts << LGW_BURST_CHUNK */
+	for (i = 0; i < TIMING_REPEAT; ++i)
+		lgw_spi_wb(spi_target, 0x55, dataout, 16);
+	for (i = 0; i < TIMING_REPEAT; ++i)
+		lgw_spi_rb(spi_target, 0x55, datain, 16);
 	
-	/* display results */
-	printf("data received: %d\n",data);
+	/* burst R/W test, large bursts >> LGW_BURST_CHUNK */
+	for (i = 0; i < TIMING_REPEAT; ++i)
+		lgw_spi_wb(spi_target, 0x5A, dataout, ARRAY_SIZE(dataout));
+	for (i = 0; i < TIMING_REPEAT; ++i)
+		lgw_spi_rb(spi_target, 0x5A, datain, ARRAY_SIZE(datain));
 	
-	lgw_spi_close(spi_device);
+	/* last read (blocking), just to be sure no to quit before the FTDI buffer is flushed */
+	lgw_spi_r(spi_target, 0x55, &data);
+	printf("data received (simple read): %d\n",data);
+	
+	lgw_spi_close(spi_target);
 	printf("End of test for loragw_spi.c\n");
 	
 	return 0;

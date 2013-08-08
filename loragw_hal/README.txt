@@ -37,6 +37,7 @@ use the Lora gateway:
 * lgw_stop, to stop the hardware
 * lgw_receive, to fetch packets if any was received
 * lgw_send, to send a single packet (non-blocking, see warning in usage section)
+* lgw_status, to check when a packet has effectively been sent
 
 For an standard application, include only this module.
 The use of this module is detailed on the usage section.
@@ -179,7 +180,8 @@ to be transmitted if the packet is triggered on a future event.
 While a packet is emitted, no packet can be received (limitation intrinsic to
 most radio frequency systems).
 
-Your application *must* take into account the time it takes to send a packet.
+Your application *must* take into account the time it takes to send a packet or 
+check the status (using lgw_status) before attempting to send another packet.
 
 Trying to send a packet while the previous packet has not finished being send
 will result in the previous packet not being sent or being sent only partially

@@ -365,7 +365,7 @@ const struct lgw_reg_s loregs[LGW_TOTALREGS] = {
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
-static int lgw_spidesc = -1; /*! file descriptor to the SPI device */
+void *lgw_spi_target = NULL; /*! generic pointer to the SPI device */
 static int lgw_regpage = -1; /*! keep the value of the register page selected */
 
 /* -------------------------------------------------------------------------- */
@@ -373,7 +373,7 @@ static int lgw_regpage = -1; /*! keep the value of the register page selected */
 
 int page_switch(uint8_t target) {
 	lgw_regpage = PAGE_MASK & target;
-	lgw_spi_w(lgw_spidesc, PAGE_ADDR, (uint8_t)lgw_regpage);
+	lgw_spi_w(lgw_spi_target, PAGE_ADDR, (uint8_t)lgw_regpage);
 	return LGW_REG_SUCCESS;
 }
 
@@ -385,18 +385,18 @@ int lgw_connect(void) {
 	int spi_stat = LGW_SPI_SUCCESS;
 	uint8_t u = 0;
 	
-	if (lgw_spidesc >= 0) {
+	if (lgw_spi_target != NULL) {
 		DEBUG_MSG("WARNING: gateway was already connected\n");
-		lgw_spi_close(lgw_spidesc);
+		lgw_spi_close(lgw_spi_target);
 	}
 	/* open the SPI link */
-	spi_stat = lgw_spi_open(&lgw_spidesc);
+	spi_stat = lgw_spi_open(&lgw_spi_target);
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR CONNECTING GATEWAY\n");
 		return LGW_REG_ERROR;
 	}
 	/* write 0 to the page/reset register */
-	spi_stat = lgw_spi_w(lgw_spidesc, loregs[LGW_PAGE_REG].addr, 0);
+	spi_stat = lgw_spi_w(lgw_spi_target, loregs[LGW_PAGE_REG].addr, 0);
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR WRITING PAGE REGISTER\n");
 		return LGW_REG_ERROR;
@@ -404,7 +404,7 @@ int lgw_connect(void) {
 		lgw_regpage = 0;
 	}
 	/* checking the version register */
-	spi_stat = lgw_spi_r(lgw_spidesc, loregs[LGW_VERSION].addr, &u);
+	spi_stat = lgw_spi_r(lgw_spi_target, loregs[LGW_VERSION].addr, &u);
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR READING VERSION REGISTER\n");
 		return LGW_REG_ERROR;
@@ -423,14 +423,13 @@ int lgw_connect(void) {
 
 /* Gateway disconnect */
 int lgw_disconnect(void) {
-	if (lgw_spidesc >= 0) {
-		lgw_spi_close(lgw_spidesc);
-		lgw_spidesc = -1;
+	if (lgw_spi_target != NULL) {
+		lgw_spi_close(lgw_spi_target);
+		lgw_spi_target = NULL;
 		DEBUG_MSG("Note: success disconnecting the gateway\n");
 		return LGW_REG_SUCCESS;
 	} else {
 		DEBUG_MSG("WARNING: gateway was already disconnected\n");
-		lgw_spidesc = -1;
 		return LGW_REG_ERROR;
 	}
 }
@@ -441,11 +440,11 @@ int lgw_disconnect(void) {
 int lgw_soft_reset(void) {
 	int32_t read_value;
 	/* check if SPI is initialised */
-	if ((lgw_spidesc < 0) || (lgw_regpage < 0)) {
+	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
 		return LGW_REG_ERROR;
 	}
-	lgw_spi_w(lgw_spidesc, 0, 0x80); /* 1 -> SOFT_RESET bit */
+	lgw_spi_w(lgw_spi_target, 0, 0x80); /* 1 -> SOFT_RESET bit */
 	lgw_regpage = 0; /* reset the paging static variable */
 	return LGW_REG_SUCCESS;
 }
@@ -462,7 +461,7 @@ int lgw_reg_check(FILE *f) {
 	int i;
 	
 	/* check if SPI is initialised */
-	if ((lgw_spidesc < 0) || (lgw_regpage < 0)) {
+	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
 		fprintf(f, "ERROR: GATEWAY UNCONNECTED\n");
 		return LGW_REG_ERROR;
@@ -499,7 +498,7 @@ int lgw_reg_w(uint16_t register_id, int32_t reg_value) {
 	}
 	
 	/* check if SPI is initialised */
-	if ((lgw_spidesc < 0) || (lgw_regpage < 0)) {
+	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
 		return LGW_REG_ERROR;
 	}
@@ -531,14 +530,14 @@ int lgw_reg_w(uint16_t register_id, int32_t reg_value) {
 	
 	if ((r.leng == 8) && (r.offs == 0)) {
 		/* direct write */
-		spi_stat += lgw_spi_w(lgw_spidesc, r.addr, (uint8_t)reg_value);
+		spi_stat += lgw_spi_w(lgw_spi_target, r.addr, (uint8_t)reg_value);
 	} else if ((r.offs + r.leng) <= 8) {
 		/* single-byte read-modify-write, offs:[0-7], leng:[1-7] */
-		spi_stat += lgw_spi_r(lgw_spidesc, r.addr, &buf[0]);
+		spi_stat += lgw_spi_r(lgw_spi_target, r.addr, &buf[0]);
 		buf[1] = ((1 << r.leng) - 1) << r.offs; /* bit mask */
 		buf[2] = ((uint8_t)reg_value) << r.offs; /* new data offsetted */
 		buf[3] = (~buf[1] & buf[0]) | (buf[1] & buf[2]); /* mixing old & new data */
-		spi_stat += lgw_spi_w(lgw_spidesc, r.addr, buf[3]);
+		spi_stat += lgw_spi_w(lgw_spi_target, r.addr, buf[3]);
 	} else if ((r.offs == 0) && (r.leng > 0) && (r.leng <= 32)) {
 		/* multi-byte direct write routine */
 		size_byte = (r.leng + 7) / 8; /* add a byte if it's not an exact multiple of 8 */ 
@@ -548,7 +547,7 @@ int lgw_reg_w(uint16_t register_id, int32_t reg_value) {
 			buf[i] = (uint8_t)(0x000000FF & reg_value);
 			reg_value = (reg_value >> 8);
 		}
-		spi_stat += lgw_spi_wb(lgw_spidesc, r.addr, buf, size_byte); /* write the register in one burst */
+		spi_stat += lgw_spi_wb(lgw_spi_target, r.addr, buf, size_byte); /* write the register in one burst */
 	} else {
 		/* register spanning multiple memory bytes but with an offset */
 		DEBUG_MSG("ERROR: REGISTER SIZE AND OFFSET ARE NOT SUPPORTED\n");
@@ -582,7 +581,7 @@ int lgw_reg_r(uint16_t register_id, int32_t *reg_value) {
 	}
 	
 	/* check if SPI is initialised */
-	if ((lgw_spidesc < 0) || (lgw_regpage < 0)) {
+	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
 		return LGW_REG_ERROR;
 	}
@@ -597,7 +596,7 @@ int lgw_reg_r(uint16_t register_id, int32_t *reg_value) {
 	
 	if ((r.offs + r.leng) <= 8) {
 		/* read one byte, then shift and mask bits to get reg value with sign extension if needed */
-		spi_stat += lgw_spi_r(lgw_spidesc, r.addr, &bufu[0]);
+		spi_stat += lgw_spi_r(lgw_spi_target, r.addr, &bufu[0]);
 		bufu[1] = bufu[0] << (8 - r.leng - r.offs); /* left-align the data */
 		if (r.sign == true) {
 			bufs[2] = bufs[1] >> (8 - r.leng); /* right align the data with sign extension (ARITHMETIC right shift) */
@@ -608,7 +607,7 @@ int lgw_reg_r(uint16_t register_id, int32_t *reg_value) {
 		}
 	} else if ((r.offs == 0) && (r.leng > 0) && (r.leng <= 32)) {
 		size_byte = (r.leng + 7) / 8; /* add a byte if it's not an exact multiple of 8 */ 
-		spi_stat += lgw_spi_rb(lgw_spidesc, r.addr, bufu, size_byte);
+		spi_stat += lgw_spi_rb(lgw_spi_target, r.addr, bufu, size_byte);
 		u = 0;
 		for (i=(size_byte-1); i>=0; --i) {
 			u = (uint32_t)bufu[i] + (u << 8); /* transform a 4-byte array into a 32 bit word */
@@ -652,7 +651,7 @@ int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
 	}
 	
 	/* check if SPI is initialised */
-	if ((lgw_spidesc < 0) || (lgw_regpage < 0)) {
+	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
 		return LGW_REG_ERROR;
 	}
@@ -672,7 +671,7 @@ int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
 	}
 	
 	/* do the burst write */
-	spi_stat = lgw_spi_wb(lgw_spidesc, r.addr, data, size);
+	spi_stat = lgw_spi_wb(lgw_spi_target, r.addr, data, size);
 	
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER BURST WRITE\n");
@@ -701,7 +700,7 @@ int lgw_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size) {
 	}
 	
 	/* check if SPI is initialised */
-	if ((lgw_spidesc < 0) || (lgw_regpage < 0)) {
+	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
 		return LGW_REG_ERROR;
 	}
@@ -715,7 +714,7 @@ int lgw_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size) {
 	}
 	
 	/* do the burst read */
-	spi_stat = lgw_spi_rb(lgw_spidesc, r.addr, data, size);
+	spi_stat = lgw_spi_rb(lgw_spi_target, r.addr, data, size);
 	
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER BURST READ\n");

@@ -43,7 +43,8 @@ Description:
 
 #define LGW_PKT_FIFO_SIZE	8
 #define LGW_DATABUFF_SIZE	1024
-#define LGW_RF_BANDWIDTH	800000
+#define LGW_RADIO_BW		500000	/* bandwidth of the radio  */
+#define LGW_REF_BW			125000	/* typical bandwidth of data channel */
 
 /*
 SX1275 frequency setting :

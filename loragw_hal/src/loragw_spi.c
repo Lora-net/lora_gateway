@@ -20,6 +20,7 @@ Description:
 
 #include <stdint.h>		/* C99 types */
 #include <stdio.h>		/* printf fprintf */
+#include <stdlib.h>		/* malloc free */
 #include <unistd.h>		/* lseek, close */
 #include <fcntl.h>		/* open */
 #include <string.h>		/* memset */
@@ -55,70 +56,95 @@ Description:
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
 /* SPI initialization and configuration */
-int lgw_spi_open(int *spi_device) {
-	int i,j,k,l;
+int lgw_spi_open(void **spi_target_ptr) {
+	int *spi_device = NULL;
+	int dev;
+	int a,b,c;
+	int i;
 	
-	CHECK_NULL(spi_device);
+	/* check input variables */
+	CHECK_NULL(spi_target_ptr); /* cannot be null, must point on a void pointer (*spi_target_ptr can be null) */
+	
+	/* allocate memory for the device descriptor */
+	spi_device = malloc(sizeof(int));
+	if (spi_device == NULL) {
+		DEBUG_MSG("ERROR: MALLOC FAIL\n");
+		return LGW_SPI_ERROR;
+	}
 	
 	/* open SPI device */
-	i = open(SPI_DEV_PATH, O_RDWR);
-	if (i < 0) {
+	dev = open(SPI_DEV_PATH, O_RDWR);
+	if (dev < 0) {
 		DEBUG_MSG("SPI port fail to open\n");
 		return LGW_SPI_ERROR;
 	}
 	
 	/* setting SPI mode to 'mode 0' */
-	j = SPI_MODE_0;
-	k = ioctl(i, SPI_IOC_WR_MODE, &j);
-	l = ioctl(i, SPI_IOC_RD_MODE, &j);
-	if ((k < 0) || (l < 0)) {
+	i = SPI_MODE_0;
+	a = ioctl(dev, SPI_IOC_WR_MODE, &i);
+	b = ioctl(dev, SPI_IOC_RD_MODE, &i);
+	if ((a < 0) || (b < 0)) {
 		DEBUG_MSG("ERROR: SPI PORT FAIL TO SET IN MODE 0\n");
-		close(i);
+		close(dev);
+		free(spi_device);
 		return LGW_SPI_ERROR;
 	}
 	
 	/* setting SPI max clk (in Hz) */
-	j = SPI_SPEED;
-	k = ioctl(i, SPI_IOC_WR_MAX_SPEED_HZ, &j);
-	l = ioctl(i, SPI_IOC_RD_MAX_SPEED_HZ, &j);
-	if ((k < 0) || (l < 0)) {
+	i = SPI_SPEED;
+	a = ioctl(dev, SPI_IOC_WR_MAX_SPEED_HZ, &i);
+	b = ioctl(dev, SPI_IOC_RD_MAX_SPEED_HZ, &i);
+	if ((a < 0) || (b < 0)) {
 		DEBUG_MSG("ERROR: SPI PORT FAIL TO SET MAX SPEED\n");
-		close(i);
+		close(dev);
+		free(spi_device);
 		return LGW_SPI_ERROR;
 	}
 	
 	/* setting SPI to MSB first */
-	j = 0;
-	k = ioctl(i, SPI_IOC_WR_LSB_FIRST, &j);
-	l = ioctl(i, SPI_IOC_RD_LSB_FIRST, &j);
-	if ((k < 0) || (l < 0)) {
+	i = 0;
+	a = ioctl(dev, SPI_IOC_WR_LSB_FIRST, &i);
+	b = ioctl(dev, SPI_IOC_RD_LSB_FIRST, &i);
+	if ((a < 0) || (b < 0)) {
 		DEBUG_MSG("ERROR: SPI PORT FAIL TO SET MSB FIRST\n");
-		close(i);
+		close(dev);
+		free(spi_device);
 		return LGW_SPI_ERROR;
 	}
 	
 	/* setting SPI to 8 bits per word */
-	j = 0; 
-	k = ioctl(i, SPI_IOC_WR_BITS_PER_WORD, &j);
-	l = ioctl(i, SPI_IOC_RD_BITS_PER_WORD, &j);
-	if ((k < 0) || (l < 0)) {
+	i = 0; 
+	a = ioctl(dev, SPI_IOC_WR_BITS_PER_WORD, &i);
+	b = ioctl(dev, SPI_IOC_RD_BITS_PER_WORD, &i);
+	if ((a < 0) || (b < 0)) {
 		DEBUG_MSG("ERROR: SPI PORT FAIL TO SET 8 BITS-PER-WORD\n");
-		close(i);
+		close(dev);
 		return LGW_SPI_ERROR;
 	}
-	DEBUG_MSG("Note: SPI port opened and configured ok\n");
-	*spi_device = i;
+	
+	*spi_device = dev;
+	*spi_target_ptr = (void *)spi_device;
+	DEBUG_MSG("Note: SPI port opened and configured ok\n");	
 	return LGW_SPI_SUCCESS;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* SPI release */
-int lgw_spi_close(int spi_device) {
-	int i;
+int lgw_spi_close(void *spi_target) {
+	int spi_device;
+	int a;
 	
-	i = close(spi_device);
-	if (i < 0) {
+	/* check input variables */
+	CHECK_NULL(spi_target);
+	
+	/* close file & deallocate file descriptor */
+	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
+	a = close(spi_device);
+	free(spi_target);
+	
+	/* determine return code */
+	if (a < 0) {
 		DEBUG_MSG("ERROR: SPI PORT FAILED TO CLOSE\n");
 		return LGW_SPI_ERROR;
 	} else {
@@ -130,24 +156,35 @@ int lgw_spi_close(int spi_device) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* Simple write */
-int lgw_spi_w(int spi_device, uint8_t address, uint8_t data) {
-	uint8_t outbuf[2];
+int lgw_spi_w(void *spi_target, uint8_t address, uint8_t data) {
+	int spi_device;
+	uint8_t out_buf[2];
 	struct spi_ioc_transfer k;
-	int i;
+	int a;
 	
-	outbuf[0] = WRITE_ACCESS | (address & 0x7F);
-	outbuf[1] = data;
+	/* check input variables */
+	CHECK_NULL(spi_target);
+	if ((address & 0x80) != 0) {
+		DEBUG_MSG("WARNING: SPI address > 127\n");
+	}
 	
+	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
+	
+	/* prepare frame to be sent */
+	out_buf[0] = WRITE_ACCESS | (address & 0x7F);
+	out_buf[1] = data;
+	
+	/* I/O transaction */
 	memset(&k, 0, sizeof(k)); /* clear k */
-	k.tx_buf = (unsigned long) outbuf;
-	k.len = ARRAY_SIZE(outbuf);
+	k.tx_buf = (unsigned long) out_buf;
+	k.len = ARRAY_SIZE(out_buf);
 	k.speed_hz = SPI_SPEED;
 	k.cs_change = 1;
 	k.bits_per_word = 8;
+	a = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
 	
-	i = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
-	
-	if (i != 2) {
+	/* determine return code */
+	if (a != 2) {
 		DEBUG_MSG("ERROR: SPI WRITE FAILURE\n");
 		return LGW_SPI_ERROR;
 	} else {
@@ -159,31 +196,41 @@ int lgw_spi_w(int spi_device, uint8_t address, uint8_t data) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* Simple read */
-int lgw_spi_r(int spi_device, uint8_t address, uint8_t *data) {
-	uint8_t outbuf[2];
-	uint8_t inbuf[ARRAY_SIZE(outbuf)];
+int lgw_spi_r(void *spi_target, uint8_t address, uint8_t *data) {
+	int spi_device;
+	uint8_t out_buf[2];
+	uint8_t in_buf[ARRAY_SIZE(out_buf)];
 	struct spi_ioc_transfer k;
-	int i;
+	int a;
 	
+	/* check input variables */
+	CHECK_NULL(spi_target);
+	if ((address & 0x80) != 0) {
+		DEBUG_MSG("WARNING: SPI address > 127\n");
+	}
 	CHECK_NULL(data);
 	
-	outbuf[0] = READ_ACCESS | (address & 0x7F);
-	outbuf[1] = 0x00;
+	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
 	
+	/* prepare frame to be sent */
+	out_buf[0] = READ_ACCESS | (address & 0x7F);
+	out_buf[1] = 0x00;
+	
+	/* I/O transaction */
 	memset(&k, 0, sizeof(k)); /* clear k */
-	k.tx_buf = (unsigned long) outbuf;
-	k.rx_buf = (unsigned long) inbuf;
-	k.len = ARRAY_SIZE(outbuf);
+	k.tx_buf = (unsigned long) out_buf;
+	k.rx_buf = (unsigned long) in_buf;
+	k.len = ARRAY_SIZE(out_buf);
 	k.cs_change = 1;
+	a = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
 	
-	i = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
-	
-	if (i != 2) {
+	/* determine return code */
+	if (a != 2) {
 		DEBUG_MSG("ERROR: SPI READ FAILURE\n");
 		return LGW_SPI_ERROR;
 	} else {
 		DEBUG_MSG("Note: SPI read success\n");
-		*data = inbuf[1];
+		*data = in_buf[1];
 		return LGW_SPI_SUCCESS;
 	}
 }
@@ -191,45 +238,48 @@ int lgw_spi_r(int spi_device, uint8_t address, uint8_t *data) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* Burst (multiple-byte) write */
-int lgw_spi_wb(int spi_device, uint8_t address, uint8_t *data, uint16_t size) {
+int lgw_spi_wb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) {
+	int spi_device;
 	uint8_t command;
 	struct spi_ioc_transfer k[2];
-	int byte_to_trans;
-	int chunk_size;
-	int offset = 0;
+	int size_to_do, chunk_size, offset;
 	int byte_transfered = 0;
+	int i;
 	
 	/* check input parameters */
+	CHECK_NULL(spi_target);
+	if ((address & 0x80) != 0) {
+		DEBUG_MSG("WARNING: SPI address > 127\n");
+	}
 	CHECK_NULL(data);
 	if (size == 0) {
 		DEBUG_MSG("ERROR: BURST OF NULL LENGTH\n");
 		return LGW_SPI_ERROR;
 	}
-	if (address > 0x7F) {
-		DEBUG_MSG("ERROR: ADDRESS OUT OF SPI RANGE\n");
-		return LGW_SPI_ERROR;
-	}
 	
-	memset(&k, 0, sizeof(k)); /* clear k */
+	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
+	
+	/* prepare command byte */
 	command = WRITE_ACCESS | (address & 0x7F);
+	size_to_do = size;
+	
+	/* I/O transaction */
+	memset(&k, 0, sizeof(k)); /* clear k */
 	k[0].tx_buf = (unsigned long) &command;
 	k[0].len = 1;
 	k[0].cs_change = 0;
 	k[1].cs_change = 1;
-	
-	byte_to_trans = size;
-	while (byte_to_trans > 0) {
-		chunk_size = (byte_to_trans < LGW_BURST_CHUNK) ? byte_to_trans : LGW_BURST_CHUNK;
+	for (i=0; size_to_do > 0; ++i) {
+		chunk_size = (size_to_do < LGW_BURST_CHUNK) ? size_to_do : LGW_BURST_CHUNK;
+		offset = i * LGW_BURST_CHUNK;
 		k[1].tx_buf = (unsigned long)(data + offset);
 		k[1].len = chunk_size;
-		
 		byte_transfered += (ioctl(spi_device, SPI_IOC_MESSAGE(2), &k) - 1 );
-		DEBUG_PRINTF("BURST WRITE: to trans %d # chunk %d # transferred %d \n", byte_to_trans, chunk_size, byte_transfered);
-		
-		byte_to_trans -= chunk_size;
-		offset += chunk_size;
-	} 
+		DEBUG_PRINTF("BURST WRITE: to trans %d # chunk %d # transferred %d \n", size_to_do, chunk_size, byte_transfered);
+		size_to_do -= chunk_size; /* subtract the quantity of data already transferred */
+	}
 	
+	/* determine return code */
 	if (byte_transfered != size) {
 		DEBUG_MSG("ERROR: SPI BURST WRITE FAILURE\n");
 		return LGW_SPI_ERROR;
@@ -242,45 +292,48 @@ int lgw_spi_wb(int spi_device, uint8_t address, uint8_t *data, uint16_t size) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 /* Burst (multiple-byte) read */
-int lgw_spi_rb(int spi_device, uint8_t address, uint8_t *data, uint16_t size) {
+int lgw_spi_rb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) {
+	int spi_device;
 	uint8_t command;
 	struct spi_ioc_transfer k[2];
-	int byte_to_trans;
-	int chunk_size;
-	int offset = 0;
+	int size_to_do, chunk_size, offset;
 	int byte_transfered = 0;
+	int i;
 	
 	/* check input parameters */
+	CHECK_NULL(spi_target);
+	if ((address & 0x80) != 0) {
+		DEBUG_MSG("WARNING: SPI address > 127\n");
+	}
 	CHECK_NULL(data);
 	if (size == 0) {
 		DEBUG_MSG("ERROR: BURST OF NULL LENGTH\n");
 		return LGW_SPI_ERROR;
 	}
-	if (address > 0x7F) {
-		DEBUG_MSG("ERROR: ADDRESS OUT OF SPI RANGE\n");
-		return LGW_SPI_ERROR;
-	}
 	
-	memset(&k, 0, sizeof(k)); /* clear k */
+	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
+	
+	/* prepare command byte */
 	command = READ_ACCESS | (address & 0x7F);
+	size_to_do = size;
+	
+	/* I/O transaction */
+	memset(&k, 0, sizeof(k)); /* clear k */
 	k[0].tx_buf = (unsigned long) &command;
 	k[0].len = 1;
 	k[0].cs_change = 0;
 	k[1].cs_change = 1;
-	
-	byte_to_trans = size;
-	while (byte_to_trans > 0) {
-		chunk_size = (byte_to_trans < LGW_BURST_CHUNK) ? byte_to_trans : LGW_BURST_CHUNK;
+	for (i=0; size_to_do > 0; ++i) {
+		chunk_size = (size_to_do < LGW_BURST_CHUNK) ? size_to_do : LGW_BURST_CHUNK;
+		offset = i * LGW_BURST_CHUNK;
 		k[1].rx_buf = (unsigned long)(data + offset);
 		k[1].len = chunk_size;
-		
 		byte_transfered += (ioctl(spi_device, SPI_IOC_MESSAGE(2), &k) - 1 );
-		DEBUG_PRINTF("BURST READ: to trans %d # chunk %d # transferred %d \n", byte_to_trans, chunk_size, byte_transfered);
-		
-		byte_to_trans -= chunk_size;
-		offset += chunk_size;
-	} 
+		DEBUG_PRINTF("BURST READ: to trans %d # chunk %d # transferred %d \n", size_to_do, chunk_size, byte_transfered);
+		size_to_do -= chunk_size;  /* subtract the quantity of data already transferred */
+	}
 	
+	/* determine return code */
 	if (byte_transfered != size) {
 		DEBUG_MSG("ERROR: SPI BURST READ FAILURE\n");
 		return LGW_SPI_ERROR;

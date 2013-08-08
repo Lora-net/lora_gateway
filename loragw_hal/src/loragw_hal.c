@@ -440,7 +440,6 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 	}
 	
 	/* check 'general' parameters */
-	/* ? add checks to stay in band (ie. radio_freq+if+BW/2 < fmax) ? */
 	if (if_chain > LGW_IF_CHAIN_NB) {
 		DEBUG_PRINTF("ERROR: %d NOT A VALID IF_CHAIN NUMBER\n", if_chain);
 		return LGW_HAL_ERROR;
@@ -448,13 +447,14 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 	if (ifmod_config[if_chain] == IF_UNDEFINED) {
 		DEBUG_PRINTF("ERROR: IF CHAIN %d NOT CONFIGURABLE\n", if_chain);
 	}
-	if (conf.freq_hz > LGW_RF_BANDWIDTH/2) {
+	if ((conf.freq_hz + LGW_REF_BW/2) > LGW_RADIO_BW/2) {
 		DEBUG_PRINTF("ERROR: IF FREQUENCY %d TOO HIGH\n", conf.freq_hz);
 		return LGW_HAL_ERROR;
-	} else if (conf.freq_hz < -LGW_RF_BANDWIDTH/2) {
+	} else if ((conf.freq_hz - LGW_REF_BW/2) < -LGW_RADIO_BW/2) {
 		DEBUG_PRINTF("ERROR: IF FREQUENCY %d TOO LOW\n", conf.freq_hz);
 		return LGW_HAL_ERROR;
 	}
+	/* WARNING: if the channel is 250 or 500kHz wide, that check is insufficient */
 	
 	/* check parameters according to the type of IF chain + modem, 
 	fill default if necessary, and commit configuration if everything is OK */
