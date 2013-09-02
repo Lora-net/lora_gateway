@@ -1,5 +1,14 @@
-Lora Gateway HAL
-================
++===============================================+
+|  / _____)             _              | |      |
+| ( (____  _____ ____ _| |_ _____  ____| |__    |
+|  \____ \| ___ |    (_   _) ___ |/ ___)  _ \   |
+|  _____) ) ____| | | || |_| ____( (___| | | |  |
+| (______/|_____)_|_|_| \__)_____)\____)_| |_|  |
+|     ©2013 Semtech-Cycleo                      |
+|                                               |
+| Description:                                  |
+|     Lora Gateway HAL documentation            |
++===============================================+
 
 1. Introduction
 ---------------
@@ -119,7 +128,18 @@ accuracy pause.
 For embedded platforms, the function could be rewritten using hardware times.
 
 All modules use the fprintf(stderr,...) function to display debug diagnostic
-messages if the DEBUG flag is defined (eg. for GCC, add the -DDEBUG flag).
+messages if the DEBUG_xxx is set to 1 in library.cfg
+
+Depending on config, SPI module needs LibMPSSE to access the FTDI SPI-over-USB
+bridge. Please go to that URL to download that library:
+http://code.google.com/p/libmpsse/
+
+The code was tested with version 1.3 of LibMPSSE:
+http://libmpsse.googlecode.com/files/libmpsse-1.3.tar.gz
+SHA1 Checksum: 	1b994a23b118f83144261e3e786c43df74a81cd5
+
+That library has some dependencies itself, please read the installation
+instructions.
 
 
 4. Hardware dependencies
@@ -137,8 +157,10 @@ are platform-dependant.
 The functions must be rewritten depending on the SPI bridge you use:
 
 * SPI master matched to the Linux SPI device driver (provided)
-* SPI over USB using FTDI components (not provided)
+* SPI over USB using FTDI components (provided)
 * native SPI using a microcontroller peripheral (not provided)
+
+Edit library.cfg to chose which SPI physical interface you want to use.
 
 You can use the test program test_loragw_spi to check with a logic analyser
 that the SPI communication is working
@@ -170,7 +192,7 @@ loop {
 <stop the gateway>
 
 To debug your application, it might help to compile the loragw_hal function
-with the DEBUG flag defined.
+with the debug messages activated (set DEBUG_HAL=1 in library.cfg).
 It then send a lot of details, including detailed error messages to *stderr*.
 
 

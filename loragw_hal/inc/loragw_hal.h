@@ -43,7 +43,6 @@ Description:
 
 #define LGW_PKT_FIFO_SIZE	8
 #define LGW_DATABUFF_SIZE	1024
-#define LGW_RADIO_BW		500000	/* bandwidth of the radio  */
 #define LGW_REF_BW			125000	/* typical bandwidth of data channel */
 
 /*
@@ -58,6 +57,7 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 /* to use those parameters, declare a local constant, and use 'rf_chain' as index */
 #define LGW_RF_RX_LOWFREQ	{863000000, 863000000}
 #define LGW_RF_RX_UPFREQ	{870000000, 870000000}
+#define LGW_RF_RX_BANDWIDTH	{800000, 	800000}	/* bandwidth of the radios */
 #define LGW_RF_TX_LOWFREQ	{863000000, 863000000}
 #define LGW_RF_TX_UPFREQ	{870000000, 870000000}
 

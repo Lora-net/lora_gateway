@@ -29,7 +29,7 @@ Description:
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-#ifdef DEBUG
+#if DEBUG_HAL == 1
 	#define DEBUG_MSG(str)				fprintf(stderr, str)
 	#define DEBUG_PRINTF(fmt, args...)	fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
 	#define DEBUG_ARRAY(a,b,c)			for(a=0;a<b;++a) fprintf(stderr,"%x.",c[a]);fprintf(stderr,"end\n")
@@ -54,6 +54,7 @@ const uint8_t ifmod_config[LGW_IF_CHAIN_NB] = LGW_IFMODEM_CONFIG; /* define hard
 
 const uint32_t rf_rx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_RX_LOWFREQ;
 const uint32_t rf_rx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_RX_UPFREQ;
+const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
 const uint32_t rf_tx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_LOWFREQ;
 const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
 
@@ -73,8 +74,8 @@ const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
 #define		SX1257_RX_ADC_TRIM		6	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
 #define		SX1257_RXBB_BW			2
 
-#define		RSSI_OFFSET_LORA_MULTI	-100.0 // TODO: need to find proper value with calibration
-#define		RSSI_OFFSET_LORA_STD	-100.0 // TODO: need to find proper value with calibration
+#define		RSSI_OFFSET_LORA_MULTI	-127.0	/* calibrated value */
+#define		RSSI_OFFSET_LORA_STD	0.0	/* RSSI not working properly on that IF channel */
 
 #define		TX_METADATA_NB		16
 #define		RX_METADATA_NB		16
@@ -447,10 +448,14 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 	if (ifmod_config[if_chain] == IF_UNDEFINED) {
 		DEBUG_PRINTF("ERROR: IF CHAIN %d NOT CONFIGURABLE\n", if_chain);
 	}
-	if ((conf.freq_hz + LGW_REF_BW/2) > LGW_RADIO_BW/2) {
+	if (conf.rf_chain >= LGW_RF_CHAIN_NB) {
+		DEBUG_MSG("ERROR: INVALID RF_CHAIN TO ASSOCIATE WITH A LORA_STD IF CHAIN\n");
+		return LGW_HAL_ERROR;
+	}
+	if ((conf.freq_hz + LGW_REF_BW/2) > ((int32_t)rf_rx_bandwidth[conf.rf_chain] / 2)) {
 		DEBUG_PRINTF("ERROR: IF FREQUENCY %d TOO HIGH\n", conf.freq_hz);
 		return LGW_HAL_ERROR;
-	} else if ((conf.freq_hz - LGW_REF_BW/2) < -LGW_RADIO_BW/2) {
+	} else if ((conf.freq_hz - LGW_REF_BW/2) < -((int32_t)rf_rx_bandwidth[conf.rf_chain] / 2)) {
 		DEBUG_PRINTF("ERROR: IF FREQUENCY %d TOO LOW\n", conf.freq_hz);
 		return LGW_HAL_ERROR;
 	}
@@ -495,10 +500,6 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 			break;
 		
 		case IF_LORA_MULTI:
-			if (conf.rf_chain >= LGW_RF_CHAIN_NB) {
-				DEBUG_MSG("ERROR: INVALID RF_CHAIN TO ASSOCIATE WITH A LORA_STD IF CHAIN\n");
-				return LGW_HAL_ERROR;
-			}
 			/* fill default parameters if needed */
 			if (conf.datarate == 0) {
 				conf.datarate = DR_LORA_MULTI;
@@ -755,10 +756,10 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			p->snr_min = ((float)((int8_t)buff[s+3]))/4;
 			p->snr_max = ((float)((int8_t)buff[s+4]))/4;
 			if (ifmod == IF_LORA_MULTI) {
-				p->rssi = RSSI_OFFSET_LORA_MULTI + (float)buff[s+5]; //TODO: check formula
+				p->rssi = RSSI_OFFSET_LORA_MULTI + (float)buff[s+5];
 				p->bandwidth = BW_125KHZ; /* fixed in hardware */
 			} else {
-				p->rssi = RSSI_OFFSET_LORA_STD + (float)buff[s+5]; //TODO: check formula, might depend on bandwidth
+				p->rssi = RSSI_OFFSET_LORA_STD + (float)buff[s+5];
 				p->bandwidth = lora_rx_bw; /* get the parameter from the config variable */
 			}
 			switch ((buff[s+1] >> 4) & 0x0F) {
@@ -872,6 +873,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		return LGW_HAL_ERROR;
 	}
 	
+	/* reset TX command flags */
+	lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 0);
+	lgw_reg_w(LGW_TX_TRIG_DELAYED, 0);
+	lgw_reg_w(LGW_TX_TRIG_GPS, 0);
+	
 	/* metadata 0 to 2, TX PLL frequency */
 	part_int = pkt_data.freq_hz / LGW_SX1257_DENOMINATOR; /* integer part, gives the MSB and the middle byte */
 	part_frac = ((pkt_data.freq_hz % LGW_SX1257_DENOMINATOR) << 8) / LGW_SX1257_DENOMINATOR; /* fractional part, gives LSB */
@@ -962,21 +968,20 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	/* send data */
 	switch(pkt_data.tx_mode) {
 		case IMMEDIATE:
-			lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 0);
 			lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 1);
 			break;
 			
 		case TIMESTAMPED:
-			lgw_reg_w(LGW_TX_TRIG_DELAYED, 0);
 			lgw_reg_w(LGW_TX_TRIG_DELAYED, 1);
 			break;
 			
 		case ON_GPS:
-			lgw_reg_w(LGW_TX_TRIG_GPS, 0);
 			lgw_reg_w(LGW_TX_TRIG_GPS, 1);
 			break;
 			
-		default: DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", pkt_data.tx_mode);
+		default:
+			DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", pkt_data.tx_mode);
+			return LGW_HAL_ERROR;
 	}
 	
 	return LGW_HAL_SUCCESS;

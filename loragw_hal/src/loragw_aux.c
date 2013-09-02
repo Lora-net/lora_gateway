@@ -20,7 +20,7 @@ Description:
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
-#ifdef DEBUG
+#if DEBUG_AUX == 1
 	#define DEBUG_MSG(str)				fprintf(stderr, str)
 	#define DEBUG_PRINTF(fmt, args...)	fprintf(stderr,"%s:%d: "fmt, __FUNCTION__, __LINE__, args)
 #else
