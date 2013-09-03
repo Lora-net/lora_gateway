@@ -248,7 +248,7 @@ int main(int argc, char **argv)
 				wait_ms(100);
 				lgw_status(TX_STATUS, &status_var); /* get TX status */
 				printf("%d:", status_var);
-			} while ((status_var != TX_EMPTY) && (j < 100));
+			} while ((status_var != TX_FREE) && (j < 100));
 			++tx_cnt;
 			printf("\nTX finished\n");
 		}

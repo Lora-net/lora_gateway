@@ -58,7 +58,7 @@ const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
 const uint32_t rf_tx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_LOWFREQ;
 const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
 
-#define		MCU_ARB_FW_BYTE		2048 /* size of the firmware IN BYTES (= twice the number of 14b words) */
+#define		MCU_ARB_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
 #define		MCU_AGC_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
 
 #define		SX1257_CLK_OUT			1	
@@ -74,8 +74,9 @@ const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
 #define		SX1257_RX_ADC_TRIM		6	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
 #define		SX1257_RXBB_BW			2
 
-#define		RSSI_OFFSET_LORA_MULTI	-127.0	/* calibrated value */
-#define		RSSI_OFFSET_LORA_STD	0.0	/* RSSI not working properly on that IF channel */
+#define		RSSI_OFFSET_LORA_MULTI	-130.0	/* calibrated value */
+#define		RSSI_OFFSET_LORA_STD	-168.0	/* calibrated for all bandwidth */
+#define		RSSI_OFFSET_FSK			0.0	/* TODO */
 
 #define		TX_METADATA_NB		16
 #define		RX_METADATA_NB		16
@@ -322,13 +323,15 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_CHIRP_INVERT_RX,1); /* default 1 */
 	// lgw_reg_w(LGW_RX_EDGE_SELECT,0); /* default 0 */
 	// lgw_reg_w(LGW_MBWSSF_MODEM_INVERT_IQ,0); /* default 0 */
-	lgw_reg_w(LGW_DC_NOTCH_EN,1); /* default 0 */
-	// lgw_reg_w(LGW_RSSI_BB_FILTER_ALPHA,7); /* default 7 */
+	// lgw_reg_w(LGW_DC_NOTCH_EN,1); /* default 1 */
+	lgw_reg_w(LGW_RSSI_BB_FILTER_ALPHA,9); /* default 7 */
 	lgw_reg_w(LGW_RSSI_DEC_FILTER_ALPHA,7); /* default 5 */
 	lgw_reg_w(LGW_RSSI_CHANN_FILTER_ALPHA,7); /* default 8 */
 	// lgw_reg_w(LGW_RSSI_BB_DEFAULT_VALUE,32); /* default 32 */
 	lgw_reg_w(LGW_RSSI_CHANN_DEFAULT_VALUE,90); /* default 100 */
 	lgw_reg_w(LGW_RSSI_DEC_DEFAULT_VALUE,90); /* default 100 */
+	// lgw_reg_w(LGW_DEC_GAIN_OFFSET, 8); /* default 8 */
+	// lgw_reg_w(LGW_CHAN_GAIN_OFFSET, 7); /* default 7 */
 	
 	/* Correlator setup */
 	// lgw_reg_w(LGW_CORR_DETECT_EN,126); /* default 126 */
@@ -364,7 +367,6 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_PAYLOAD_FINE_TIMING_GAIN,2); /* default 2 */
 	// lgw_reg_w(LGW_TRACKING_INTEGRAL,0); /* default 0 */
 	// lgw_reg_w(LGW_ADJUST_MODEM_START_OFFSET_RDX8,0); /* default 0 */
-	// lgw_reg_w(LGW_ADJUST_MODEM_START_OFFSET_RDX4,0); /* default 0 */
 	// lgw_reg_w(LGW_ADJUST_MODEM_START_OFFSET_SF12_RDX4,4092); /* default 4092 */
 	// lgw_reg_w(LGW_MAX_PAYLOAD_LEN,255); /* default 255 */
 	
@@ -384,9 +386,35 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_MBWSSF_TRACKING_INTEGRAL,0); /* default 0 */
 	// lgw_reg_w(LGW_MBWSSF_AGC_FREEZE_ON_DETECT,1); /* default 1 */
 	
+	/* FSK datapath */
+	lgw_reg_w(LGW_FSK_RX_INVERT,1); /* default 0 */
+	lgw_reg_w(LGW_FSK_MODEM_INVERT_IQ,1); /* default 0 */
+	
+	/* FSK demod */
+	// lgw_reg_w(LGW_FSK_AUTO_AFC_ON,0); /* default 0 */
+	// lgw_reg_w(LGW_FSK_BROADCAST,0); /* default 0 */
+	lgw_reg_w(LGW_FSK_CRC_EN,1); /* default 0 */
+	// lgw_reg_w(LGW_FSK_CRC_IBM,0); /* default 0 */
+	// lgw_reg_w(LGW_FSK_DCFREE_ENC,0); /* default 0 */
+	lgw_reg_w(LGW_FSK_ERROR_OSR_TOL,10); /* default 0 */
+	lgw_reg_w(LGW_FSK_MODEM_INVERT_IQ,1); /* default 0 */
+	// lgw_reg_w(LGW_FSK_NODE_ADRS,0); /* default 0 */
+	lgw_reg_w(LGW_FSK_PATTERN_TIMEOUT_CFG,64); /* default 0 */
+	lgw_reg_w(LGW_FSK_PKT_LENGTH,64); /* default 0 */
+	lgw_reg_w(LGW_FSK_PKT_MODE,1); /* default 0 */
+	lgw_reg_w(LGW_FSK_PSIZE,3); /* default 0 */
+	lgw_reg_w(LGW_FSK_REF_PATTERN_LSB,0x55); /* default 0 */
+	lgw_reg_w(LGW_FSK_REF_PATTERN_MSB,0x55); /* default 0 */
+	lgw_reg_w(LGW_FSK_RSSI_LENGTH,4); /* default 0 */
+	lgw_reg_w(LGW_FSK_CH_BW_EXPO,2); /* 125kHz (default 0, 500kHz) */
+	
+	/* FSK mod */
+	lgw_reg_w(LGW_FSK_TX_PSIZE,3); /* default 0 */
+	lgw_reg_w(LGW_FSK_TX_GAUSSIAN_SELECT_BT,1); /* default 0 */
+	
 	/* TX */
 	// lgw_reg_w(LGW_TX_MODE,0); /* default 0 */
-	lgw_reg_w(LGW_TX_START_DELAY,5000); /* default 0 */
+	lgw_reg_w(LGW_TX_START_DELAY,1000); /* default 0 */
 	lgw_reg_w(LGW_TX_SWAP_IQ,1); /* "normal" polarity; default 0 */
 	
 	return;
@@ -465,10 +493,6 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 	fill default if necessary, and commit configuration if everything is OK */
 	switch (ifmod_config[if_chain]) {
 		case IF_LORA_STD:
-			if (conf.rf_chain != 0) {
-				DEBUG_MSG("ERROR: LORA_STD IF CHAIN CAN ONLY BE ASSOCIATED TO RF_CHAIN 0\n");
-				return LGW_HAL_ERROR;
-			}
 			/* fill default parameters if needed */
 			if (conf.bandwidth == 0) {
 				conf.bandwidth = BW_250KHZ;
@@ -556,9 +580,10 @@ int lgw_start(void) {
 	/* reset the registers (also shuts the radios down) */
 	lgw_soft_reset();
 	
-	/* Ungate clock (gated by default), needed for SPI master to SX1257 */
-	lgw_reg_w(LGW_CLK32M_EN, 1);
-	lgw_reg_w(LGW_CLKHS_EN, 1);
+	/* Ungate clocks (gated by default) */
+	lgw_reg_w(LGW_GLOBAL_EN, 1);
+	// lgw_reg_w(LGW_CLK32M_EN, 1);
+	// lgw_reg_w(LGW_CLKHS_EN, 1);
 	
 	/* switch on and reset the radios (also starts the 32 MHz XTAL) */
 	lgw_reg_w(LGW_RADIO_A_EN,1); /* radio A *must* be started to get 32 MHz clk */
@@ -581,14 +606,7 @@ int lgw_start(void) {
 	lgw_reg_w(LGW_FORCE_HOST_FE_CTRL,0);
 	lgw_reg_w(LGW_FORCE_DEC_FILTER_GAIN,0);
 	
-	// /* TODO load the calibration firmware and wait for calibration to end */
-	// load_firmware(MCU_AGC, cal_firmware, ARRAY_SIZE(cal_firmware));
-	// lgw_reg_w(LGW_MCU_RST, 0); /* start the AGC MCU */
-	// lgw_reg_w(LGW_FORCE_HOST_REG_CTRL,0); /* let the AGC MCU control the registers */
-	// do {
-		// lgw_reg_r(LGW_VERSION, &read_value);
-	// } while (read_value == 0);
-	// lgw_reg_w(LGW_MCU_RST, 3); /* reset all MCU */
+	/* TODO load the calibration firmware and wait for calibration to end */
 	
 	/* in the absence of calibration firmware, do a "manual" calibration */
 	lgw_reg_w(LGW_TX_OFFSET_I,10);
@@ -652,9 +670,6 @@ int lgw_start(void) {
 	/* Get MCUs out of reset */
 	lgw_reg_w(LGW_MCU_RST_0, 0);
 	lgw_reg_w(LGW_MCU_RST_1, 0);
-	
-	/* Show that nanoC is configured (LED 602 green, blue at reset)*/
-	lgw_reg_w(LGW_LED_REG, 5);
 	
 	lgw_is_started = true;
 	return LGW_HAL_SUCCESS;
@@ -740,16 +755,11 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		
 		if ((ifmod == IF_LORA_MULTI) || (ifmod == IF_LORA_STD)) {
 			DEBUG_MSG("Note: Lora packet\n");
-			if ((buff[s+1] & 0x01) == 1) { /* CRC enabled */
-				if (stat_fifo == 1) {
-					p->status = STAT_CRC_OK;
-				} else if (stat_fifo == 3){
-					p->status = STAT_CRC_BAD;
-				} else {
-					p->status = STAT_UNDEFINED;
-				}
-			} else {
-				p->status = STAT_NO_CRC;
+			switch(stat_fifo & 0x07) {
+				case 5: p->status = STAT_CRC_OK; break;
+				case 7: p->status = STAT_CRC_BAD; break;
+				case 1: p->status = STAT_NO_CRC; break;
+				default: p->status = STAT_UNDEFINED;
 			}
 			p->modulation = MOD_LORA;
 			p->snr = ((float)((int8_t)buff[s+2]))/4;
@@ -999,14 +1009,12 @@ int lgw_status(uint8_t select, uint8_t *code) {
 		lgw_reg_r(LGW_TX_STATUS, &read_value);
 		if (lgw_is_started == false) {
 			*code = TX_OFF;
-		} else if ((read_value & 0x70) == 0) {
-			*code = TX_EMPTY;
-		} else if ((read_value & 0x10) != 0) {
-			*code = TX_DELAYED;
-		} else if ((read_value & 0x60) != 0) {
+		} else if ((read_value & 0x10) == 0) { /* bit 4 @1: TX programmed */
+			*code = TX_FREE;
+		} else if ((read_value & 0x60) != 0) { /* bit 5 or 6 @1: TX sequence */
 			*code = TX_EMITTING;
 		} else {
-			*code = TX_STATUS_UNKNOWN;
+			*code = TX_SCHEDULED;
 		}
 		return LGW_HAL_SUCCESS;
 		

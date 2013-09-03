@@ -133,8 +133,8 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 /* status code for TX_STATUS */
 #define TX_STATUS_UNKNOWN	0
 #define	TX_OFF				1	/* TX modem disabled, it will ignore commands */
-#define TX_EMPTY			2	/* TX modem is free, ready to receive a command */
-#define TX_DELAYED			3	/* TX modem is loaded, ready to send the packet after an event and/or delay */
+#define TX_FREE				2	/* TX modem is free, ready to receive a command */
+#define TX_SCHEDULED		3	/* TX modem is loaded, ready to send the packet after an event and/or delay */
 #define TX_EMITTING			4	/* TX modem is emitting */
 
 /* status code for RX_STATUS */
