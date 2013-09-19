@@ -1,0 +1,35 @@
+Lora Gateway HAL changelog
+==========================
+
+ Beta 7 (from beta 5)
+---------------------
+
+ * Reduced number of SPI transactions to fetch a packet (improved number a packets par second that can be downloaded from gateway)
+ * Streamlined build process, main target is now a static library: libloragw.a
+ * Change memory allocation for payload: they are now part of the struct for TX/RX, no need to malloc/free
+ * All RX chains can use any of the two radios now
+ * FSK is available and working in TX and RX (variable length mode)
+ * Calibrated RSSI for FSK
+ * lgw_connect now check the CHIP_ID
+ * Added a license file and a changelog
+ * Added a function returning a version string to allow identification of the version/options once compiled
+
+ Beta 6
+-------
+
+Not a mainline release, not taken into account in that changelog.
+
+ Beta 5 (from beta 4)
+---------------------
+
+ * Updated registers, firmware and configuration to align with r986 bitstream revision
+ * Calibrated RSSI for Lora "multi" and Lora "stand alone" modems
+ * Renamed some confusing TX status code
+ * Preliminary FSK support
+
+ Beta 4 (from beta 3)
+---------------------
+
+ * Unified build environment with selectable SPI layer (Linux native or FTDI SPI-over-USB bridge)
+ * Remove the 500 kHz limit on radio bandwith, back to the nominal 800 kHz
+ * Renamed debug flags

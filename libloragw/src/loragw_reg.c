@@ -432,13 +432,25 @@ int lgw_connect(void) {
 	} else {
 		lgw_regpage = 0;
 	}
+	/* checking the chip ID */
+	spi_stat = lgw_spi_r(lgw_spi_target, loregs[LGW_CHIP_ID].addr, &u);
+	if (spi_stat != LGW_SPI_SUCCESS) {
+		DEBUG_MSG("ERROR READING CHIP_ID REGISTER\n");
+		return LGW_REG_ERROR;
+	} else if (u == 0) {
+		DEBUG_MSG("ERROR: CHIP_ID=0, GATEWAY SEEMS DISCONNECTED\n");
+		return LGW_REG_ERROR;
+	} else if (u != loregs[LGW_CHIP_ID].dflt) {
+		DEBUG_MSG("ERROR: MISMATCH BETWEEN EXPECTED REG CHIP_ID AND READ REG CHIP_ID\n");
+		return LGW_REG_ERROR;
+	}
 	/* checking the version register */
 	spi_stat = lgw_spi_r(lgw_spi_target, loregs[LGW_VERSION].addr, &u);
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR READING VERSION REGISTER\n");
 		return LGW_REG_ERROR;
 	} else if (u == 0) {
-		DEBUG_MSG("ERROR: GATEWAY SEEMS DISCONNECTED\n");
+		DEBUG_MSG("ERROR: VERSION=0, GATEWAY SEEMS DISCONNECTED\n");
 		return LGW_REG_ERROR;
 	} else if (u != loregs[LGW_VERSION].dflt) {
 		DEBUG_MSG("ERROR: MISMATCH BETWEEN EXPECTED REG VERSION AND READ REG VERSION\n");

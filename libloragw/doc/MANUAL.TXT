@@ -1,14 +1,12 @@
-+===============================================+
-|  / _____)             _              | |      |
-| ( (____  _____ ____ _| |_ _____  ____| |__    |
-|  \____ \| ___ |    (_   _) ___ |/ ___)  _ \   |
-|  _____) ) ____| | | || |_| ____( (___| | | |  |
-| (______/|_____)_|_|_| \__)_____)\____)_| |_|  |
-|     ©2013 Semtech-Cycleo                      |
-|                                               |
-| Description:                                  |
-|     Lora Gateway HAL documentation            |
-+===============================================+
+	 / _____)             _              | |    
+	( (____  _____ ____ _| |_ _____  ____| |__  
+	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
+	 _____) ) ____| | | || |_| ____( (___| | | |
+	(______/|_____)_|_|_| \__)_____)\____)_| |_|
+		©2013 Semtech-Cycleo
+
+Lora Gateway HAL user manual
+============================
 
 1. Introduction
 ---------------
@@ -18,8 +16,7 @@ use a Semtech Lora gateway hardware through a reduced number of high level C
 functions to configure the hardware, send and receive packets.
 
 The Semtech Lora gateway is a digital multi-channel multi-standard packet radio
-used to send and receive packets wirelessly using Lora, FSK or GFSK
-modulations.
+used to send and receive packets wirelessly using Lora or FSK modulations.
 
 
 2. Components of the library
@@ -145,12 +142,17 @@ instructions.
 4. Hardware dependencies
 ------------------------
 
+### 4.1. Hardware revision ###
+
 The loragw_reg and loragw_hal are written for a specific version on the Semtech
-hardware.
-The library will not work if there is a mismatch between the hardware version
-and the library version.
-You can use the test program test_loragw_reg to check if the hardware registers
-match their software declaration.
+hardware (IP and/or silicon revision).
+All relevant details are contained in the VERSION.TXT file.
+
+The library will not work if there is a mismatch between the hardware version 
+and the library version. You can use the test program test_loragw_reg to check 
+if the hardware registers match their software declaration.
+
+### 4.2. SPI communication ###
 
 loragw_spi contains 4 SPI functions (read, write, burst read, burst write) that
 are platform-dependant.
@@ -168,6 +170,22 @@ that the SPI communication is working
 
 5. Usage
 --------
+
+### 5.1. Setting the software environment ###
+
+For a typical application you need to:
+
+* include loragw_hal.h in your program source
+* link to the libloragw.a static library during compilation
+* link to the librt library due to loragw_aux dependencies (timing functions)
+* link to the libmpsse library if you use a FTDI SPI-over-USB bridge
+
+For an application that will also access the concentrator configuration 
+registers directly (eg. for advanced configuration) you also need to:
+
+* include loragw_reg.h in your program source
+
+### 5.2. Using the software API ###
 
 To use the HAL in your application, you must follow some basic rules:
 
@@ -191,11 +209,6 @@ loop {
 }
 <stop the gateway>
 
-To debug your application, it might help to compile the loragw_hal function
-with the debug messages activated (set DEBUG_HAL=1 in library.cfg).
-It then send a lot of details, including detailed error messages to *stderr*.
-
-
 **/!\ Warning** The lgw_send function is non-blocking and returns while the
 Lora gateway is still sending the packet, or even before the packet has started
 to be transmitted if the packet is triggered on a future event.
@@ -209,11 +222,11 @@ Trying to send a packet while the previous packet has not finished being send
 will result in the previous packet not being sent or being sent only partially
 (resulting in a CRC error in the receiver).
 
+### 5.3. Debugging mode ###
 
-6. License
-----------
-
-To Be Defined.
+To debug your application, it might help to compile the loragw_hal function
+with the debug messages activated (set DEBUG_HAL=1 in library.cfg).
+It then send a lot of details, including detailed error messages to *stderr*.
 
 
 *EOF*

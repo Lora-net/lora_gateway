@@ -22,7 +22,6 @@ Description:
 #endif
 
 #include <stdint.h>		/* C99 types */
-#include <stdlib.h>		/* malloc & free */
 #include <stdbool.h>	/* bool type */
 #include <stdio.h>		/* printf */
 #include <string.h>		/* memset */
@@ -70,7 +69,6 @@ int main(int argc, char **argv)
 	
 	struct lgw_pkt_rx_s rxpkt[4]; /* array containing up to 4 inbound packets metadata */
 	struct lgw_pkt_tx_s txpkt; /* configuration and metadata for an outbound packet */
-	uint8_t txbuf[256]; /* buffer for the TX payload */
 	struct lgw_pkt_rx_s *p; /* pointer on a RX packet */
 	
 	int i, j;
@@ -98,11 +96,11 @@ int main(int argc, char **argv)
 	memset(&rfconf, 0, sizeof(rfconf));
 	
 	rfconf.enable = true;
-	rfconf.freq_hz = 866187500;
+	rfconf.freq_hz = 866000000;
 	lgw_rxrf_setconf(0, rfconf); /* radio A */
 	
 	rfconf.enable = true;
-	rfconf.freq_hz = 866437500;
+	rfconf.freq_hz = 868000000;
 	lgw_rxrf_setconf(1, rfconf); /* radio B */
 	
 	/* set configuration for Lora multi-SF channels (bandwidth cannot be set) */
@@ -110,55 +108,75 @@ int main(int argc, char **argv)
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
-	ifconf.freq_hz = -187500;
+	ifconf.freq_hz = -300000;
 	ifconf.bandwidth = BW_125KHZ;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(0, ifconf); /* chain 0: 1st radio, bleeper channel 1, all SF */
+	lgw_rxif_setconf(0, ifconf); /* chain 0: Lora 125kHz, all SF, on 865.7 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
-	ifconf.freq_hz = -62500;
+	ifconf.freq_hz = 300000;
 	ifconf.bandwidth = BW_125KHZ;
-	ifconf.datarate = DR_LORA_SF8 | DR_LORA_SF10;
-	lgw_rxif_setconf(1, ifconf); /* chain 1: 1st radio, bleeper channel 2, SF8 & SF10 only */
-	
-	ifconf.enable = false;
-	ifconf.rf_chain = 0;
-	ifconf.freq_hz = 0;
-	ifconf.bandwidth = 0;
-	ifconf.datarate = 0;
-	lgw_rxif_setconf(2, ifconf); /* chain 2: 1st radio, disabled */
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(1, ifconf); /* chain 1: Lora 125kHz, all SF, on 866.3 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
-	ifconf.freq_hz = -187500;
+	ifconf.freq_hz = -300000;
 	ifconf.bandwidth = BW_125KHZ;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(3, ifconf); /* chain 3: 2nd radio, bleeper channel 3, all SF */
+	lgw_rxif_setconf(2, ifconf); /* chain 2: Lora 125kHz, all SF, on 867.7 MHz */
+	
+	ifconf.enable = true;
+	ifconf.rf_chain = 1;
+	ifconf.freq_hz = 300000;
+	ifconf.bandwidth = BW_125KHZ;
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(3, ifconf); /* chain 3: Lora 125kHz, all SF, on 868.3 MHz */
 	
 	/* set configuration for Lora 'stand alone' channel */
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
-	ifconf.freq_hz = 187500;
-	ifconf.bandwidth = BW_125KHZ;
+	ifconf.freq_hz = 0;
+	ifconf.bandwidth = BW_250KHZ;
 	ifconf.datarate = DR_LORA_SF10;
-	lgw_rxif_setconf(8, ifconf); /* chain 8: bleeper channel 4, SF10 only */
+	lgw_rxif_setconf(8, ifconf); /* chain 8: Lora 250kHz, SF10, on 866.0 MHz */
 	
+	/* set configuration for FSK channel */
+	ifconf.enable = true;
+	ifconf.rf_chain = 1;
+	ifconf.freq_hz = 0;
+	ifconf.bandwidth = BW_250KHZ;
+	ifconf.datarate = 64000;
+	lgw_rxif_setconf(9, ifconf); /* chain 9: FSK 64kbps, fdev 32kHz, variable payload, on 868.0 MHz */
 	
-	/* load the TX payload */
-	strcpy((char *)txbuf, "TX.TEST.LORA.GW.????" );
-		
 	/* set configuration for TX packet */
+	
 	memset(&txs, 0, sizeof(txs));
-	txs.freq_hz = 866250000;
+	txs.freq_hz = 867000000;
 	txs.tx_mode = IMMEDIATE;
 	txs.modulation = MOD_LORA;
 	txs.bandwidth = BW_250KHZ;
 	txs.datarate = DR_LORA_SF10;
 	txs.coderate = CR_LORA_4_5;
-	txs.payload = txbuf;
+	strcpy((char *)txs.payload, "TX.TEST.LORA.GW.????" );
 	txs.size = 20;
-	txs.rf_chain = 1;
+	txs.preamble = 6;
+	txs.rf_chain = 0;
+/*	
+	memset(&txs, 0, sizeof(txs));
+	txs.freq_hz = 867000000;
+	txs.tx_mode = IMMEDIATE;
+	txs.modulation = MOD_FSK;
+	txs.f_dev = 50;
+	txs.datarate = 64000;
+	strcpy((char *)txs.payload, "TX.TEST.LORA.GW.????" );
+	txs.size = 20;
+	txs.preamble = 4;
+	txs.rf_chain = 0;
+*/	
+	
+//	printf("***\n%s\n***\n", lgw_version_info());
 	
 	/* connect, configure and start the Lora gateway */
 	lgw_start();
@@ -172,11 +190,10 @@ int main(int argc, char **argv)
 		if (nb_pkt == 0) {
 			wait_ms(300);
 		} else {
-			printf("\nLora gateway, %d packets received:\n\n", nb_pkt);
 			/* display received packets */
 			for(i=0; i < nb_pkt; ++i) {
 				p = &rxpkt[i];
-				printf("---\nPkt #%d >>", i+1);
+				printf("---\nRcv pkt #%d >>", i+1);
 				if (p->status == STAT_CRC_OK) {
 					printf(" if_chain:%2d", p->if_chain);
 					printf(" tstamp:%010u", p->count_us);
@@ -184,7 +201,6 @@ int main(int argc, char **argv)
 					switch (p-> modulation) {
 						case MOD_LORA: printf(" Lora"); break;
 						case MOD_FSK: printf(" FSK"); break;
-						case MOD_GFSK: printf(" GFSK"); break;
 						default: printf(" modulation?");
 					}
 					switch (p->datarate) {
@@ -205,6 +221,7 @@ int main(int argc, char **argv)
 					}
 					printf("\n");
 					printf(" RSSI:%+6.1f SNR:%+5.1f (min:%+5.1f, max:%+5.1f) payload:\n", p->rssi, p->snr, p->snr_min, p->snr_max);
+					
 					for (j = 0; j < p->size; ++j) {
 						printf(" %02X", p->payload[j]);
 					}
@@ -226,23 +243,18 @@ int main(int argc, char **argv)
 					printf(" invalid status ?!?\n\n");
 				}
 			}
-			
-			/* free the memory used for RX payload(s) */
-			for(i=0; i < nb_pkt; ++i) {
-				free(rxpkt[i].payload);
-			}
 		}
 		
 		/* send a packet every X loop */
 		if (loop_cnt%16 == 0) {
 			/* 32b counter in the payload, big endian */
-			txbuf[16] = 0xff & (tx_cnt >> 24);
-			txbuf[17] = 0xff & (tx_cnt >> 16);
-			txbuf[18] = 0xff & (tx_cnt >> 8);
-			txbuf[19] = 0xff & tx_cnt;
+			txs.payload[16] = 0xff & (tx_cnt >> 24);
+			txs.payload[17] = 0xff & (tx_cnt >> 16);
+			txs.payload[18] = 0xff & (tx_cnt >> 8);
+			txs.payload[19] = 0xff & tx_cnt;
 			i = lgw_send(txs); /* non-blocking scheduling of TX packet */
 			j = 0;
-			printf("Sending packet #%d, rf path %d, return %d\nstatus -> ", tx_cnt, txs.rf_chain, i);
+			printf("+++\nSending packet #%d, rf path %d, return %d\nstatus -> ", tx_cnt, txs.rf_chain, i);
 			do {
 				++j;
 				wait_ms(100);

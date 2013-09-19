@@ -27,6 +27,10 @@ Description:
 #define IS_LORA_STD_DR(dr)		((dr == DR_LORA_SF7) || (dr == DR_LORA_SF8) || (dr == DR_LORA_SF9) || (dr == DR_LORA_SF10) || (dr == DR_LORA_SF11) || (dr == DR_LORA_SF12))
 #define IS_LORA_MULTI_DR(dr)	((dr & ~DR_LORA_MULTI) == 0) /* ones outside of DR_LORA_MULTI bitmask -> not a combination of Lora datarates */
 #define IS_LORA_CR(cr)			((cr == CR_LORA_4_5) || (cr == CR_LORA_4_6) || (cr == CR_LORA_4_7) || (cr == CR_LORA_4_8))
+
+#define IS_FSK_BW(bw)			((bw >= 1) && (bw <= 7))
+#define IS_FSK_DR(dr)			((dr >= DR_FSK_MIN) && (dr <= DR_FSK_MAX))
+
 #define	IS_TX_MODE(mode)		((mode == IMMEDIATE) || (mode == TIMESTAMPED) || (mode == ON_GPS))
 
 /* -------------------------------------------------------------------------- */
@@ -41,25 +45,17 @@ Description:
 #define LGW_IF_CHAIN_NB		10	/* number of IF+modem RX chains */
 #define LGW_MULTI_NB		4	/* number of Lora 'multi SF' chains */
 
-#define LGW_PKT_FIFO_SIZE	8
-#define LGW_DATABUFF_SIZE	1024
-#define LGW_REF_BW			125000	/* typical bandwidth of data channel */
-
-/*
-SX1275 frequency setting :
-F_register(24bit) = F_rf (Hz) / F_step(Hz)
-                  = F_rf (Hz) * 2^19 / F_xtal(Hz)
-                  = F_rf (Hz) * 256/15625
-*/
-#define LGW_XTAL_FREQU	32000000
-#define LGW_SX1257_DENOMINATOR	15625 /* pll settings denominator when the numerator is 2^8 */
+#define LGW_PKT_FIFO_SIZE	8			/* depth of the RX packet FIFO */
+#define LGW_DATABUFF_SIZE	1024		/* size in bytes of the RX data buffer (contains payload & metadata) */
+#define LGW_REF_BW			125000		/* typical bandwidth of data channel */
+#define LGW_XTAL_FREQU		32000000	/* frequency of the RF reference oscillator */
 
 /* to use those parameters, declare a local constant, and use 'rf_chain' as index */
-#define LGW_RF_RX_LOWFREQ	{863000000, 863000000}
-#define LGW_RF_RX_UPFREQ	{870000000, 870000000}
-#define LGW_RF_RX_BANDWIDTH	{800000, 	800000}	/* bandwidth of the radios */
-#define LGW_RF_TX_LOWFREQ	{863000000, 863000000}
-#define LGW_RF_TX_UPFREQ	{870000000, 870000000}
+#define LGW_RF_RX_LOWFREQ	{863000000, 863000000}	/* lower limit of the usable band in RX for each radio */
+#define LGW_RF_RX_UPFREQ	{870000000, 870000000}	/* upper limit of the usable band in RX for each radio */
+#define LGW_RF_RX_BANDWIDTH	{800000, 	800000}		/* bandwidth of the radios */
+#define LGW_RF_TX_LOWFREQ	{863000000, 863000000}	/* lower limit of the usable band in TX for each radio */
+#define LGW_RF_TX_UPFREQ	{870000000, 870000000}	/* upper limit of the usable band in TX for each radio */
 
 /* type of if_chain + modem */
 #define IF_UNDEFINED		0
@@ -82,37 +78,46 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 	IF_FSK_STD }
 
 /* values available for the 'modulation' parameters */
+/* NOTE: arbitrary values */
 #define MOD_UNDEFINED	0
 #define MOD_LORA		0x10
 #define MOD_FSK			0x20
-#define MOD_GFSK		0x21
 
-/* values available for the 'bandwidth' parameters */
+/* values available for the 'bandwidth' parameters (Lora & FSK) */
+/* NOTE: directly encode FSK RX bandwidth, do not change */
 #define BW_UNDEFINED	0
-#define BW_500KHZ		0x04
-#define BW_250KHZ		0x08
-#define BW_125KHZ		0x0C
-// TODO: add all the supported FSK bandwidth
+#define BW_500KHZ		0x01
+#define BW_250KHZ		0x02
+#define BW_125KHZ		0x03
+#define BW_62K5HZ		0x04
+#define BW_31K2HZ		0x05
+#define BW_15K6HZ		0x06
+#define BW_7K8HZ		0x07
 
 /* values available for the 'datarate' parameters */
+/* NOTE: Lora values used directly to code SF bitmask in 'multi' modem, do not change */
 #define DR_UNDEFINED	0
-#define DR_LORA_SF7		0x1002
-#define DR_LORA_SF8		0x1004
-#define DR_LORA_SF9		0x1008
-#define DR_LORA_SF10	0x1010
-#define DR_LORA_SF11	0x1020
-#define DR_LORA_SF12	0x1040
-#define DR_LORA_MULTI	0x107E
-// TODO: add FSK data rates
+#define DR_LORA_SF7		0x02
+#define DR_LORA_SF8		0x04
+#define DR_LORA_SF9		0x08
+#define DR_LORA_SF10	0x10
+#define DR_LORA_SF11	0x20
+#define DR_LORA_SF12	0x40
+#define DR_LORA_MULTI	0x7E
+/* NOTE: for FSK directly use baudrate between 300 bauds and 250 kbauds */
+#define DR_FSK_MIN		300
+#define DR_FSK_MAX		250000
 
-/* values available for the 'coderate' parameters */
+/* values available for the 'coderate' parameters (Lora only) */
+/* NOTE: arbitrary values */
 #define CR_UNDEFINED	0
-#define CR_LORA_4_5		0x11
-#define CR_LORA_4_6		0x12
-#define CR_LORA_4_7		0x13
-#define CR_LORA_4_8		0x14
+#define CR_LORA_4_5		0x01
+#define CR_LORA_4_6		0x02
+#define CR_LORA_4_7		0x03
+#define CR_LORA_4_8		0x04
 
 /* values available for the 'status' parameter */
+/* NOTE: values according to hardware specification */
 #define STAT_UNDEFINED	0x00
 #define STAT_NO_CRC		0x01
 #define STAT_CRC_BAD	0x11
@@ -131,6 +136,7 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define	RX_STATUS		2
 
 /* status code for TX_STATUS */
+/* NOTE: arbitrary values */
 #define TX_STATUS_UNKNOWN	0
 #define	TX_OFF				1	/* TX modem disabled, it will ignore commands */
 #define TX_FREE				2	/* TX modem is free, ready to receive a command */
@@ -138,6 +144,7 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define TX_EMITTING			4	/* TX modem is emitting */
 
 /* status code for RX_STATUS */
+/* NOTE: arbitrary values */
 #define RX_STATUS_UNKNOWN	0
 #define RX_OFF				1	/* RX modem is disabled, it will ignore commands  */
 #define RX_ON				2	/* RX modem is receiving */
@@ -164,7 +171,7 @@ struct lgw_conf_rxif_s {
 	uint8_t		rf_chain;	/*!> to which RF chain is that IF chain associated */
 	int32_t		freq_hz;	/*!> center frequ of the IF chain, relative to RF chain frequency */
 	uint8_t		bandwidth;	/*!> RX bandwidth, 0 for default */
-	uint16_t	datarate;	/*!> RX datarate, 0 for default */
+	uint32_t	datarate;	/*!> RX datarate, 0 for default */
 };
 
 /**
@@ -185,7 +192,7 @@ struct lgw_pkt_rx_s {
 	float		snr_max;	/*!> maximum packet SNR, in dB (Lora only) */
 	uint16_t	crc;		/*!> CRC that was received in the payload */
 	uint16_t	size;		/*!> payload size in bytes */
-	uint8_t		*payload;	/*!> pointer to the payload */
+	uint8_t		payload[256]; /*!> buffer containing the payload */
 };
 
 /**
@@ -201,14 +208,14 @@ struct lgw_pkt_tx_s {
 	uint8_t		modulation; /*!> modulation to use for the packet */
 	uint8_t		bandwidth;	/*!> modulation bandwidth (Lora only) */
 	bool		invert_pol;	/*!> invert signal polarity, for orthogonal downlinks (Lora only) */
-	uint16_t	f_dev;		/*!> frequency deviation (FSK only) */
-	uint16_t	datarate;	/*!> TX datarate */
-	uint8_t		coderate;	/*!> error-correcting code of the packet */
+	uint8_t		f_dev;		/*!> frequency deviation, in kHz (FSK only) */
+	uint16_t	datarate;	/*!> TX datarate (baudrate for FSK) */
+	uint8_t		coderate;	/*!> error-correcting code of the packet (Lora only) */
 	uint16_t	preamble;	/*!> set the preamble length, 0 for default */
 	bool		no_crc;		/*!> if true, do not send a CRC in the packet */
-	bool		no_header;	/*!> if true, enable implicit header mode */
+	bool		no_header;	/*!> if true, enable implicit header mode (Lora), fixed length (FSK) */
 	uint16_t	size;		/*!> payload size in bytes */
-	uint8_t		*payload;	/*!> pointer to the payload */
+	uint8_t		payload[256]; /*!> buffer containing the payload */
 };
 
 /* -------------------------------------------------------------------------- */
@@ -264,6 +271,12 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data);
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
 int lgw_status(uint8_t select, uint8_t *code);
+
+/**
+@brief Allow user to check the version/options of the library once compiled
+@return pointer on a human-readable null terminated string
+*/
+const char* lgw_version_info(void);
 
 #endif
 
