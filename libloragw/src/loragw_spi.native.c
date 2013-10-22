@@ -59,7 +59,7 @@ Description:
 int lgw_spi_open(void **spi_target_ptr) {
 	int *spi_device = NULL;
 	int dev;
-	int a,b,c;
+	int a=0, b=0;
 	int i;
 	
 	/* check input variables */

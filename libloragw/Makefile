@@ -3,8 +3,8 @@ include library.cfg
 
 # constant symbols
 CC=gcc
-CFLAGS=-O2 -Iinc -I.
-C99FLAGS=-O2 -std=c99 -Iinc -I.
+CFLAGS=-O2 -Wall -Wextra -Iinc -I.
+C99FLAGS=-O2 -Wall -Wextra -std=c99 -Iinc -I.
 
 # configuration-dependant symbols
 ifeq ($(LGW_PHY),native)

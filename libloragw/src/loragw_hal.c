@@ -36,7 +36,7 @@ Description:
 #else
 	#define DEBUG_MSG(str)
 	#define DEBUG_PRINTF(fmt, args...)
-	#define DEBUG_ARRAY(a,b,c)
+	#define DEBUG_ARRAY(a,b,c)			for(a=0;a!=0;){}
 	#define CHECK_NULL(a)				if(a==NULL){return LGW_HAL_ERROR;}
 #endif
 
@@ -61,25 +61,25 @@ const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
 #define		MCU_AGC_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
 
 /*
-SX1275 frequency setting :
+SX1257 frequency setting :
 F_register(24bit) = F_rf (Hz) / F_step(Hz)
                   = F_rf (Hz) * 2^19 / F_xtal(Hz)
+                  = F_rf (Hz) * 2^19 / 32e6
                   = F_rf (Hz) * 256/15625
 */
-#define 	SX1257_DENOM	15625	/* pll settings denominator when the numerator is 2^8 */
+#define 	SX125x_32MHz_FRAC	15625	/* irreductible fraction for PLL register caculation */
 
-#define		SX1257_CLK_OUT			1	
-#define		SX1257_TX_DAC_CLK_SEL	1	/* 0:int, 1:ext */
-#define		SX1257_TX_DAC_GAIN		2	/* 3:0, 2:-3, 1:-6, 0:-9 dBFS (default 2) */
-#define		SX1257_TX_MIX_GAIN		14	/* -38 + 2*TxMixGain dB (default 14) */
-#define		SX1257_TX_PLL_BW		3	/* 0:75, 1:150, 2:225, 3:300 kHz (default 3) */
-#define		SX1257_TX_ANA_BW		0	/* 17.5 / 2*(41-TxAnaBw) MHz (default 0) */
-#define		SX1257_TX_DAC_BW		7	/* 24 + 8*TxDacBw Nb FIR taps (default 2) */
-#define		SX1257_RX_LNA_GAIN		1	/* 1 to 6, 1 highest gain */
-#define		SX1257_RX_BB_GAIN		12	/* 0 to 15 , 15 highest gain */
-#define		SX1257_RX_ADC_BW		7	/* 0 to 7, 2:100<BW<200, 5:200<BW<400,7:400<BW (kHz) */
-#define		SX1257_RX_ADC_TRIM		6	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
-#define		SX1257_RXBB_BW			2
+#define		SX125x_TX_DAC_CLK_SEL	1	/* 0:int, 1:ext */
+#define		SX125x_TX_DAC_GAIN		2	/* 3:0, 2:-3, 1:-6, 0:-9 dBFS (default 2) */
+#define		SX125x_TX_MIX_GAIN		14	/* -38 + 2*TxMixGain dB (default 14) */
+#define		SX125x_TX_PLL_BW		3	/* 0:75, 1:150, 2:225, 3:300 kHz (default 3) */
+#define		SX125x_TX_ANA_BW		0	/* 17.5 / 2*(41-TxAnaBw) MHz (default 0) */
+#define		SX125x_TX_DAC_BW		7	/* 24 + 8*TxDacBw Nb FIR taps (default 2) */
+#define		SX125x_RX_LNA_GAIN		1	/* 1 to 6, 1 highest gain */
+#define		SX125x_RX_BB_GAIN		12	/* 0 to 15 , 15 highest gain */
+#define		SX125x_RX_ADC_BW		7	/* 0 to 7, 2:100<BW<200, 5:200<BW<400,7:400<BW (kHz) */
+#define		SX125x_RX_ADC_TRIM		6	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
+#define		SX125x_RXBB_BW			2
 
 #define		RSSI_OFFSET_LORA_MULTI	-128.0	/* calibrated value */
 #define		RSSI_OFFSET_LORA_STD	-167.0	/* calibrated for all bandwidth */
@@ -115,7 +115,7 @@ the _start function assumes
 static bool lgw_is_started = false;
 
 static bool rf_enable[LGW_RF_CHAIN_NB] = {0, 0};
-static uint32_t rf_rx_freq[LGW_IF_CHAIN_NB] = {0, 0}; /* absolute, in Hz */
+static uint32_t rf_rx_freq[LGW_RF_CHAIN_NB] = {0, 0}; /* absolute, in Hz */
 
 static bool if_enable[LGW_IF_CHAIN_NB] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static bool if_rf_chain[LGW_IF_CHAIN_NB] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* for each IF, 0 -> radio A, 1 -> radio B */
@@ -135,9 +135,9 @@ static uint32_t fsk_rx_dr = 0; /* FSK modem datarate in bauds */
 
 int load_firmware(uint8_t target, uint8_t *firmware, uint16_t size);
 
-void sx125x_write(uint8_t rf_chain, uint8_t addr, uint8_t data);
+void sx125x_write(uint8_t channel, uint8_t addr, uint8_t data);
 
-uint8_t sx125x_read(uint8_t rf_chain, uint8_t addr);
+uint8_t sx125x_read(uint8_t channel, uint8_t addr);
 
 int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz);
 
@@ -148,7 +148,6 @@ void lgw_constant_adjust(void);
 
 /* size is the firmware size in bytes (not 14b words) */
 int load_firmware(uint8_t target, uint8_t *firmware, uint16_t size) {
-	int32_t read_value;
 	int reg_rst;
 	int reg_sel;
 	
@@ -292,24 +291,28 @@ int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 		DEBUG_MSG("ERROR: INVALID RF_CHAIN\n");
 		return -1;
 	}
-	
-	/* misc */
-	sx125x_write(rf_chain, 0x10, SX1257_TX_DAC_CLK_SEL + SX1257_CLK_OUT*2);
+		
+	if (rf_chain == 0) { /* Enable 'clock out' for radio A only */
+		sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL + 2);
+	} else {
+		sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL);
+	}
+	sx125x_write(rf_chain, 0x26, 0X2D); /* Disable gm of oscillator block */
 	
 	/* Tx gain and trim */
-	sx125x_write(rf_chain, 0x08, SX1257_TX_MIX_GAIN + SX1257_TX_DAC_GAIN*16);
-	sx125x_write(rf_chain, 0x0A, SX1257_TX_ANA_BW + SX1257_TX_PLL_BW*32);
-	sx125x_write(rf_chain, 0x0B, SX1257_TX_DAC_BW);
+	sx125x_write(rf_chain, 0x08, SX125x_TX_MIX_GAIN + SX125x_TX_DAC_GAIN*16);
+	sx125x_write(rf_chain, 0x0A, SX125x_TX_ANA_BW + SX125x_TX_PLL_BW*32);
+	sx125x_write(rf_chain, 0x0B, SX125x_TX_DAC_BW);
 	
 	/* Rx gain and trim */
-	sx125x_write(rf_chain, 0x0C, 0 + SX1257_RX_BB_GAIN*2 + SX1257_RX_LNA_GAIN*32);
-	sx125x_write(rf_chain, 0x0D, SX1257_RXBB_BW + SX1257_RX_ADC_TRIM*4 + SX1257_RX_ADC_BW*32);
+	sx125x_write(rf_chain, 0x0C, 0 + SX125x_RX_BB_GAIN*2 + SX125x_RX_LNA_GAIN*32);
+	sx125x_write(rf_chain, 0x0D, SX125x_RXBB_BW + SX125x_RX_ADC_TRIM*4 + SX125x_RX_ADC_BW*32);
 	
 	/* set RX PLL frequency */
-	part_int = freq_hz / SX1257_DENOM; /* integer part, gives the MSB and the middle byte */
-	part_frac = ((freq_hz % SX1257_DENOM) << 8) / SX1257_DENOM; /* fractional part, gives LSB */
-	sx125x_write(rf_chain, 0x01,0xFF & (part_int >> 8)); /* Most Significant Byte */
-	sx125x_write(rf_chain, 0x02,0xFF & part_int); /* middle byte */
+	part_int = freq_hz / (SX125x_32MHz_FRAC << 8); /* integer part, gives the MSB */
+	part_frac = ((freq_hz % (SX125x_32MHz_FRAC << 8)) << 8) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
+	sx125x_write(rf_chain, 0x01,0xFF & part_int); /* Most Significant Byte */
+	sx125x_write(rf_chain, 0x02,0xFF & (part_frac >> 8)); /* middle byte */
 	sx125x_write(rf_chain, 0x03,0xFF & part_frac); /* Least Significant Byte */
 	
 	/* start and PLL lock */
@@ -321,9 +324,9 @@ int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 		sx125x_write(rf_chain, 0x00, 1); /* enable Xtal oscillator */
 		sx125x_write(rf_chain, 0x00, 3); /* Enable RX (PLL+FE) */
 		++cpt_attempts;
-		DEBUG_PRINTF("Note: SX1257 #%d PLL start (attempt %d)\n", rf_chain, cpt_attempts);
+		DEBUG_PRINTF("Note: SX125x #%d PLL start (attempt %d)\n", rf_chain, cpt_attempts);
 		wait_ms(1);
-	} while(sx125x_read(rf_chain, 0x11) & 0x02 == 0);
+	} while((sx125x_read(rf_chain, 0x11) & 0x02) == 0);
 	
 	return 0;
 }
@@ -340,7 +343,7 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_MBWSSF_MODEM_INVERT_IQ,0); /* default 0 */
 	// lgw_reg_w(LGW_DC_NOTCH_EN,1); /* default 1 */
 	lgw_reg_w(LGW_RSSI_BB_FILTER_ALPHA,9); /* default 7 */
-	lgw_reg_w(LGW_RSSI_DEC_FILTER_ALPHA,7); /* default 5 */
+	lgw_reg_w(LGW_RSSI_DEC_FILTER_ALPHA,9); /* default 5 */
 	lgw_reg_w(LGW_RSSI_CHANN_FILTER_ALPHA,7); /* default 8 */
 	// lgw_reg_w(LGW_RSSI_BB_DEFAULT_VALUE,32); /* default 32 */
 	lgw_reg_w(LGW_RSSI_CHANN_DEFAULT_VALUE,90); /* default 100 */
@@ -608,7 +611,6 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 int lgw_start(void) {
 	int i, j;
 	int reg_stat;
-	int32_t read_value;
 	
 	if (lgw_is_started == true) {
 		DEBUG_MSG("Note: Lora Gateway already started, restarting it now\n");
@@ -747,7 +749,6 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 	int nb_pkt_fetch; /* loop variable and return value */
 	struct lgw_pkt_rx_s *p; /* pointer to the current structure in the struct array */
 	uint8_t buff[255+RX_METADATA_NB]; /* buffer to store the result of SPI read bursts */
-	uint16_t data_addr; /* address read from the FIFO and programmed before the data buffer read operation */
 	int s; /* size of the payload, uses to address metadata */
 	int ifmod; /* type of if_chain/modem a packet was received by */
 	int stat_fifo; /* the packet status as indicated in the FIFO */
@@ -864,6 +865,10 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		p->count_us = (uint32_t)buff[s+6] + ((uint32_t)buff[s+7] << 8) + ((uint32_t)buff[s+8] << 16) + ((uint32_t)buff[s+9] << 24);
 		p->crc = (uint16_t)buff[s+10] + ((uint16_t)buff[s+11] << 8);
 		
+		/* get back info from configuration so that application doesn't have to keep track of it */
+		p->rf_chain = (uint8_t)if_rf_chain[p->if_chain];
+		p->freq_hz = (uint32_t)((int32_t)rf_rx_freq[p->rf_chain] + if_freq[p->if_chain]);
+		
 		/* advance packet FIFO */
 		lgw_reg_w(LGW_RX_PACKET_DATA_FIFO_NUM_STORED, 0);
 	}
@@ -874,13 +879,13 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_send(struct lgw_pkt_tx_s pkt_data) {
+	int i;
 	uint8_t buff[256+TX_METADATA_NB]; /* buffer to prepare the packet to send + metadata before SPI write burst */
 	uint32_t part_int; /* integer part for PLL register value calculation */
 	uint32_t part_frac; /* fractional part for PLL register value calculation */
 	uint16_t fsk_dr_div; /* divider to configure for target datarate */
 	int transfer_size = 0; /* data to transfer from host to TX databuffer */
 	int payload_offset = 0; /* start of the payload content in the databuffer */
-	int i;
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -953,10 +958,10 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	payload_offset = TX_METADATA_NB; /* start the payload just after the metadata */
 	
 	/* metadata 0 to 2, TX PLL frequency */
-	part_int = pkt_data.freq_hz / SX1257_DENOM; /* integer part, gives the MSB and the middle byte */
-	part_frac = ((pkt_data.freq_hz % SX1257_DENOM) << 8) / SX1257_DENOM; /* fractional part, gives LSB */
-	buff[0] = 0xFF & (part_int >> 8); /* Most Significant Byte */
-	buff[1] = 0xFF & part_int; /* middle byte */
+	part_int = pkt_data.freq_hz / (SX125x_32MHz_FRAC << 8); /* integer part, gives the MSB */
+	part_frac = ((pkt_data.freq_hz % (SX125x_32MHz_FRAC << 8)) << 8) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
+	buff[0] = 0xFF & part_int; /* Most Significant Byte */
+	buff[1] = 0xFF & (part_frac >> 8); /* middle byte */
 	buff[2] = 0xFF & part_frac; /* Least Significant Byte */
 	
 	/* metadata 3 to 6, timestamp trigger value */
@@ -1053,7 +1058,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[13] = 0xFF & pkt_data.preamble;
 		
 		/* metadata 14 & 15, FSK baudrate */
-		fsk_dr_div = LGW_XTAL_FREQU / pkt_data.datarate;
+		fsk_dr_div = (uint16_t)((uint32_t)LGW_XTAL_FREQU / pkt_data.datarate); /* Ok for datarate between 500bps and 250kbps */
 		buff[14] = 0xFF & (fsk_dr_div >> 8);
 		buff[15] = 0xFF & fsk_dr_div;
 		

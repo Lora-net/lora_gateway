@@ -28,6 +28,7 @@ Description:
 #include <signal.h>		/* sigaction */
 
 #include "loragw_hal.h"
+#include "loragw_reg.h"
 #include "loragw_aux.h"
 
 /* -------------------------------------------------------------------------- */
@@ -60,7 +61,7 @@ static void sig_handler(int sigio) {
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
 
-int main(int argc, char **argv)
+int main()
 {
 	struct sigaction sigact; /* SIGQUIT&SIGINT&SIGTERM signal handling */
 	
@@ -73,13 +74,12 @@ int main(int argc, char **argv)
 	
 	int i, j;
 	int nb_pkt;
-	uint8_t x;
 	
 	uint32_t tx_cnt = 0;
 	unsigned long loop_cnt = 0;
-	int tx_path = 0;
-	struct lgw_pkt_tx_s txs;
 	uint8_t status_var = 0;
+	
+	FILE * reg_dump = NULL;
 	
 	/* configure signal handling */
 	sigemptyset(&sigact.sa_mask);
@@ -109,32 +109,29 @@ int main(int argc, char **argv)
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = -300000;
-	ifconf.bandwidth = BW_125KHZ;
 	ifconf.datarate = DR_LORA_MULTI;
 	lgw_rxif_setconf(0, ifconf); /* chain 0: Lora 125kHz, all SF, on 865.7 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = 300000;
-	ifconf.bandwidth = BW_125KHZ;
 	ifconf.datarate = DR_LORA_MULTI;
 	lgw_rxif_setconf(1, ifconf); /* chain 1: Lora 125kHz, all SF, on 866.3 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
 	ifconf.freq_hz = -300000;
-	ifconf.bandwidth = BW_125KHZ;
 	ifconf.datarate = DR_LORA_MULTI;
 	lgw_rxif_setconf(2, ifconf); /* chain 2: Lora 125kHz, all SF, on 867.7 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
 	ifconf.freq_hz = 300000;
-	ifconf.bandwidth = BW_125KHZ;
 	ifconf.datarate = DR_LORA_MULTI;
 	lgw_rxif_setconf(3, ifconf); /* chain 3: Lora 125kHz, all SF, on 868.3 MHz */
 	
 	/* set configuration for Lora 'stand alone' channel */
+	memset(&ifconf, 0, sizeof(ifconf));
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = 0;
@@ -143,43 +140,51 @@ int main(int argc, char **argv)
 	lgw_rxif_setconf(8, ifconf); /* chain 8: Lora 250kHz, SF10, on 866.0 MHz */
 	
 	/* set configuration for FSK channel */
+	memset(&ifconf, 0, sizeof(ifconf));
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
 	ifconf.freq_hz = 0;
 	ifconf.bandwidth = BW_250KHZ;
 	ifconf.datarate = 64000;
-	lgw_rxif_setconf(9, ifconf); /* chain 9: FSK 64kbps, fdev 32kHz, variable payload, on 868.0 MHz */
+	lgw_rxif_setconf(9, ifconf); /* chain 9: FSK 64kbps, on 868.0 MHz */
 	
 	/* set configuration for TX packet */
 	
-	memset(&txs, 0, sizeof(txs));
-	txs.freq_hz = 867000000;
-	txs.tx_mode = IMMEDIATE;
-	txs.modulation = MOD_LORA;
-	txs.bandwidth = BW_250KHZ;
-	txs.datarate = DR_LORA_SF10;
-	txs.coderate = CR_LORA_4_5;
-	strcpy((char *)txs.payload, "TX.TEST.LORA.GW.????" );
-	txs.size = 20;
-	txs.preamble = 6;
-	txs.rf_chain = 0;
+	memset(&txpkt, 0, sizeof(txpkt));
+	txpkt.freq_hz = 867000000;
+	txpkt.tx_mode = IMMEDIATE;
+	txpkt.modulation = MOD_LORA;
+	txpkt.bandwidth = BW_250KHZ;
+	txpkt.datarate = DR_LORA_SF10;
+	txpkt.coderate = CR_LORA_4_5;
+	strcpy((char *)txpkt.payload, "TX.TEST.LORA.GW.????" );
+	txpkt.size = 20;
+	txpkt.preamble = 6;
+	txpkt.rf_chain = 0;
 /*	
-	memset(&txs, 0, sizeof(txs));
-	txs.freq_hz = 867000000;
-	txs.tx_mode = IMMEDIATE;
-	txs.modulation = MOD_FSK;
-	txs.f_dev = 50;
-	txs.datarate = 64000;
-	strcpy((char *)txs.payload, "TX.TEST.LORA.GW.????" );
-	txs.size = 20;
-	txs.preamble = 4;
-	txs.rf_chain = 0;
+	memset(&txpkt, 0, sizeof(txpkt));
+	txpkt.freq_hz = 867000000;
+	txpkt.tx_mode = IMMEDIATE;
+	txpkt.modulation = MOD_FSK;
+	txpkt.f_dev = 50;
+	txpkt.datarate = 64000;
+	strcpy((char *)txpkt.payload, "TX.TEST.LORA.GW.????" );
+	txpkt.size = 20;
+	txpkt.preamble = 4;
+	txpkt.rf_chain = 0;
 */	
 	
-//	printf("***\n%s\n***\n", lgw_version_info());
+	printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 	
 	/* connect, configure and start the Lora gateway */
 	lgw_start();
+	
+	/* once configured, dump content of registers to a file, for reference */
+	reg_dump = fopen("reg_dump.log", "w");
+	if (reg_dump != NULL) {
+		lgw_reg_check(reg_dump);
+		fclose(reg_dump);
+	}
 	
 	while ((quit_sig != 1) && (exit_sig != 1)) {
 		loop_cnt++;
@@ -248,13 +253,13 @@ int main(int argc, char **argv)
 		/* send a packet every X loop */
 		if (loop_cnt%16 == 0) {
 			/* 32b counter in the payload, big endian */
-			txs.payload[16] = 0xff & (tx_cnt >> 24);
-			txs.payload[17] = 0xff & (tx_cnt >> 16);
-			txs.payload[18] = 0xff & (tx_cnt >> 8);
-			txs.payload[19] = 0xff & tx_cnt;
-			i = lgw_send(txs); /* non-blocking scheduling of TX packet */
+			txpkt.payload[16] = 0xff & (tx_cnt >> 24);
+			txpkt.payload[17] = 0xff & (tx_cnt >> 16);
+			txpkt.payload[18] = 0xff & (tx_cnt >> 8);
+			txpkt.payload[19] = 0xff & tx_cnt;
+			i = lgw_send(txpkt); /* non-blocking scheduling of TX packet */
 			j = 0;
-			printf("+++\nSending packet #%d, rf path %d, return %d\nstatus -> ", tx_cnt, txs.rf_chain, i);
+			printf("+++\nSending packet #%d, rf path %d, return %d\nstatus -> ", tx_cnt, txpkt.rf_chain, i);
 			do {
 				++j;
 				wait_ms(100);

@@ -24,7 +24,7 @@ Description:
 
 #define BURST_TEST_LENGTH	8192
 
-int main(int argc, char **argv)
+int main()
 {
 	int32_t read_value, test_value;
 	uint16_t lfsr;

@@ -177,7 +177,7 @@ int lgw_spi_wb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 	uint8_t command;
 	uint8_t *out_buf = NULL;
 	int size_to_do, buf_size, chunk_size, offset;
-	int a, b, c;
+	int a=0, b=0, c=0;
 	int i;
 	
 	/* check input parameters */
@@ -243,7 +243,7 @@ int lgw_spi_rb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 	struct mpsse_context *mpsse = spi_target;
 	uint8_t command;
 	int size_to_do, chunk_size, offset;
-	int a, b, c, d;
+	int a=0, b=0, c=0, d=0;
 	int i;
 	
 	/* check input parameters */

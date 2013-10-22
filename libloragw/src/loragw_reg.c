@@ -479,7 +479,6 @@ int lgw_disconnect(void) {
 
 /* soft-reset function */
 int lgw_soft_reset(void) {
-	int32_t read_value;
 	/* check if SPI is initialised */
 	if ((lgw_spi_target == NULL) || (lgw_regpage < 0)) {
 		DEBUG_MSG("ERROR: GATEWAY UNCONNECTED\n");
@@ -610,7 +609,7 @@ int lgw_reg_r(uint16_t register_id, int32_t *reg_value) {
 	int spi_stat = LGW_SPI_SUCCESS;
 	struct lgw_reg_s r;
 	uint8_t bufu[4] = "\x00\x00\x00\x00";
-	int8_t *bufs = bufu;
+	int8_t *bufs = (int8_t *)bufu;
 	int i, size_byte;
 	uint32_t u = 0;
 	
