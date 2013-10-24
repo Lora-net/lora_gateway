@@ -886,6 +886,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	uint16_t fsk_dr_div; /* divider to configure for target datarate */
 	int transfer_size = 0; /* data to transfer from host to TX databuffer */
 	int payload_offset = 0; /* start of the payload content in the databuffer */
+	uint8_t power_nibble = 0; /* 4-bit value to set the firmware TX power */
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -948,6 +949,14 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		return LGW_HAL_ERROR;
 	}
 	
+	/* interpretation of TX power */
+	if (pkt_data.rf_power < 24) {
+		power_nibble = 0x0; /* ~15.5 dBm, so 14 after cavity filter + cables */
+	} else {
+		power_nibble = 0xF; /* maximum power ~25.5 dBm, 24 after filter */
+	}
+	// TODO: implement LUT in the firmware and matched value in the HAL
+	
 	/* reset TX command flags */
 	lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 0);
 	lgw_reg_w(LGW_TX_TRIG_DELAYED, 0);
@@ -973,8 +982,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	/* parameters depending on modulation  */
 	if (pkt_data.modulation == MOD_LORA) {
 		/* metadata 7, modulation type, radio chain selection and TX power */
-		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | (0x0F & pkt_data.rf_power); /* bit 4 is 0 -> Lora modulation */
-		/* fine control over TX power not supported yet, any value other than 8 is 14 dBm */
+		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | (0x0F & power_nibble); /* bit 4 is 0 -> Lora modulation */
 		
 		buff[8] = 0; /* metadata 8, not used */
 		
@@ -1033,8 +1041,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		
 	} else if (pkt_data.modulation == MOD_FSK) {
 		/* metadata 7, modulation type, radio chain selection and TX power */
-		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | 0x10 | (0x0F & pkt_data.rf_power); /* bit 4 is 1 -> FSK modulation */
-		/* fine control over TX power not supported yet, any value other than 8 is 14 dBm */
+		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | 0x10 | (0x0F & power_nibble); /* bit 4 is 1 -> FSK modulation */
 		
 		buff[8] = 0; /* metadata 8, not used */
 		

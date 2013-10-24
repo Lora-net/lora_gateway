@@ -25,7 +25,7 @@ This software call functions in the loragw_reg and loragw_reg sub-modules of
 loragwlib. loragw_spi is used indirectly, and the loragw_hal sub-module is not
 used at all, except for constants define at the top level.
 
-It has been qualified with the Lora Getway HAL library version beta8, and should
+It has been qualified with the Lora Getway HAL library version 1.0.0, and should
 be compatible with any compatible later version that use the same API, or a
 downward-compatible one.
 
@@ -53,5 +53,5 @@ yyyymmddThhmmssZ (eg. 20131009T172345Z for October 9th, 2013 at 5:23:45PM UTC)
 4. Changelog
 -------------
 
-2013-10-18, beta 1
+2013-10-24, v1
 Initial version.

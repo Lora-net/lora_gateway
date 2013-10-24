@@ -1,6 +1,13 @@
 Lora Gateway HAL changelog
 ==========================
 
+ v1.0.0 (from beta 8)
+---------------------
+
+ * switched FTDI as default SPI phy layer in library.cfg
+ * fixed a bug in TX power control; still only two TW power available, 14 and 24 dBm
+ * changed library directory name from loragw_hal to libloragw to follow usual conventions
+
  Beta 8 (from beta 7)
 ---------------------
 

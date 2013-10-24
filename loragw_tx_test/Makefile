@@ -11,10 +11,11 @@ FLAG_AUX=
 
 ### constants for Lora Gateway HAL library
 
-LGW_PATH=../loragw_hal
+LGW_PATH=../libloragw
 LGW_INC=-I$(LGW_PATH)/inc
-#LGW_LNK=-lloragw -lrt
+
 LGW_LNK=-lloragw -lrt -lmpsse
+#LGW_LNK=-lloragw -lrt
 # add libmpsse or not, depending on what option you compiled the libloragw with
 
 ### general build targets

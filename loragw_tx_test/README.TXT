@@ -28,7 +28,7 @@ Data structures of the sent packets are accessed by name (ie. not at a
 binary level) so new functionalities can be added to the API without affecting
 that program at all.
 
-It was tested with beta8 of the libloragw library, and should be compatible
+It was tested with v1.0.0 of the libloragw library, and should be compatible
 with any later version of the library assuming the API is downward-compatible.
 
 3. Usage
@@ -61,5 +61,5 @@ packet error rate.
 4. Changelog
 -------------
 
-2013-10-18, beta 1
+2013-10-24, v1
 Initial version.
