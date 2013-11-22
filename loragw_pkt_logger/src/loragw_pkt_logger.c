@@ -8,6 +8,9 @@
 
 Description:
 	Configure Lora concentrator and record received packets in a log file
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 

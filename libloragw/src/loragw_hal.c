@@ -8,6 +8,9 @@
 
 Description:
 	Lora gateway Hardware Abstraction Layer
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 
@@ -92,6 +95,8 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define		MIN_LORA_PREAMBLE		4
 #define		MIN_FSK_PREAMBLE		3
 #define		PLL_LOCK_MAX_ATTEMPTS	6
+
+#define		TX_START_DELAY		1000
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -292,11 +297,7 @@ int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 		return -1;
 	}
 		
-	if (rf_chain == 0) { /* Enable 'clock out' for radio A only */
-		sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL + 2);
-	} else {
-		sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL);
-	}
+	sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL + 2); /* Enable 'clock out' for both radios */
 	sx125x_write(rf_chain, 0x26, 0X2D); /* Disable gm of oscillator block */
 	
 	/* Tx gain and trim */
@@ -426,7 +427,7 @@ void lgw_constant_adjust(void) {
 	lgw_reg_w(LGW_FSK_PATTERN_TIMEOUT_CFG,128); /* sync timeout (allow 8 bytes preamble + 8 bytes sync word, default 0 */
 	
 	/* TX general parameters */
-	lgw_reg_w(LGW_TX_START_DELAY,1000); /* default 0 */
+	lgw_reg_w(LGW_TX_START_DELAY, TX_START_DELAY); /* default 0 */
 	
 	/* TX Lora */
 	// lgw_reg_w(LGW_TX_MODE,0); /* default 0 */
@@ -749,9 +750,13 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 	int nb_pkt_fetch; /* loop variable and return value */
 	struct lgw_pkt_rx_s *p; /* pointer to the current structure in the struct array */
 	uint8_t buff[255+RX_METADATA_NB]; /* buffer to store the result of SPI read bursts */
-	int s; /* size of the payload, uses to address metadata */
+	int sz; /* size of the payload, uses to address metadata */
 	int ifmod; /* type of if_chain/modem a packet was received by */
 	int stat_fifo; /* the packet status as indicated in the FIFO */
+	uint32_t raw_timestamp; /* timestamp when internal 'RX finished' was triggered */
+	uint32_t timestamp_correction; /* correction to account for processing delay */
+	uint8_t sf, cr, bw; /* used to calculate timestamp correction */
+	uint8_t crc_en, ppm; /* used to calculate timestamp correction */
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -784,40 +789,52 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		DEBUG_PRINTF("FIFO content: %x %x %x %x %x\n",buff[0],buff[1],buff[2],buff[3],buff[4]);
 		
 		p->size = buff[4];
-		s = p->size;
+		sz = p->size;
 		stat_fifo = buff[3]; /* will be used later, need to save it before overwriting buff */
 		
 		/* get payload + metadata */
-		lgw_reg_rb(LGW_RX_DATA_BUF_DATA, buff, s+RX_METADATA_NB);
+		lgw_reg_rb(LGW_RX_DATA_BUF_DATA, buff, sz+RX_METADATA_NB);
 		
 		/* copy payload to result struct */
-		memcpy((void *)p->payload, (void *)buff, s);
+		memcpy((void *)p->payload, (void *)buff, sz);
 		
 		/* process metadata */
-		p->if_chain = buff[s+0];
+		p->if_chain = buff[sz+0];
 		ifmod = ifmod_config[p->if_chain];
 		DEBUG_PRINTF("[%d %d]\n", p->if_chain, ifmod);
 		
 		if ((ifmod == IF_LORA_MULTI) || (ifmod == IF_LORA_STD)) {
 			DEBUG_MSG("Note: Lora packet\n");
 			switch(stat_fifo & 0x07) {
-				case 5: p->status = STAT_CRC_OK; break;
-				case 7: p->status = STAT_CRC_BAD; break;
-				case 1: p->status = STAT_NO_CRC; break;
-				default: p->status = STAT_UNDEFINED;
+				case 5:
+					p->status = STAT_CRC_OK;
+					crc_en = 1;
+					break;
+				case 7:
+					p->status = STAT_CRC_BAD;
+					crc_en = 1;
+					break;
+				case 1:
+					p->status = STAT_NO_CRC;
+					crc_en = 0;
+					break;
+				default:
+					p->status = STAT_UNDEFINED;
+					crc_en = 0;
 			}
 			p->modulation = MOD_LORA;
-			p->snr = ((float)((int8_t)buff[s+2]))/4;
-			p->snr_min = ((float)((int8_t)buff[s+3]))/4;
-			p->snr_max = ((float)((int8_t)buff[s+4]))/4;
+			p->snr = ((float)((int8_t)buff[sz+2]))/4;
+			p->snr_min = ((float)((int8_t)buff[sz+3]))/4;
+			p->snr_max = ((float)((int8_t)buff[sz+4]))/4;
 			if (ifmod == IF_LORA_MULTI) {
-				p->rssi = RSSI_OFFSET_LORA_MULTI + (float)buff[s+5];
+				p->rssi = RSSI_OFFSET_LORA_MULTI + (float)buff[sz+5];
 				p->bandwidth = BW_125KHZ; /* fixed in hardware */
 			} else {
-				p->rssi = RSSI_OFFSET_LORA_STD + (float)buff[s+5];
+				p->rssi = RSSI_OFFSET_LORA_STD + (float)buff[sz+5];
 				p->bandwidth = lora_rx_bw; /* get the parameter from the config variable */
 			}
-			switch ((buff[s+1] >> 4) & 0x0F) {
+			sf = (buff[sz+1] >> 4) & 0x0F;
+			switch (sf) {
 				case 7: p->datarate = DR_LORA_SF7; break;
 				case 8: p->datarate = DR_LORA_SF8; break;
 				case 9: p->datarate = DR_LORA_SF9; break;
@@ -826,12 +843,50 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 				case 12: p->datarate = DR_LORA_SF12; break;
 				default: p->datarate = DR_UNDEFINED;
 			}
-			switch ((buff[s+1] >> 1) & 0x07) {
+			cr = (buff[sz+1] >> 1) & 0x07;
+			switch (cr) {
 				case 1: p->coderate = CR_LORA_4_5; break;
 				case 2: p->coderate = CR_LORA_4_6; break;
 				case 3: p->coderate = CR_LORA_4_7; break;
 				case 4: p->coderate = CR_LORA_4_8; break;
 				default: p->coderate = CR_UNDEFINED;
+			}
+			
+			/* timestamp correction code */
+			if (ifmod == IF_LORA_STD) { /* if packet was received on the stand-alone lora modem */
+				switch (lora_rx_bw) {
+					case BW_125KHZ:
+						timestamp_correction = 64;
+						bw = 1;
+						break;
+					case BW_250KHZ:
+						timestamp_correction = 32;
+						bw = 2;
+						break;
+					case BW_500KHZ:
+						timestamp_correction = 16;
+						bw = 4;
+						break;
+					default:
+						DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", p->bandwidth);	
+						timestamp_correction = 0;
+						bw = 0;
+				}
+			} else { /* packet was received on one of the sensor channels = 125kHz */
+				timestamp_correction = 114;
+				bw = 1;
+			}
+			if (SET_PPM_ON(p->bandwidth,p->datarate)) {
+				ppm = 1;
+			} else {
+				ppm = 0;
+			}	
+			if ((2*(sz + 2*crc_en) - sf +7) <= 0) { /* payload fits entirely in first 8 symbols */
+				timestamp_correction += (((1<<(sf-1)) * (sf+1)) + (3*(1<<(sf-4))))/bw;
+				timestamp_correction += 32 * (2*(sz+2*crc_en) + 5)/bw;
+			} else {
+				timestamp_correction += (((1<<(sf-1)) * (sf+1)) + ((4.0-ppm)/4.0*(1<<(sf-2))))/bw;
+				timestamp_correction += (16 + 4*cr) * (((2*(sz+2*crc_en)-sf + 6) % (sf-2*ppm) +1) / bw);
 			}
 		} else if (ifmod == IF_FSK_STD) {
 			DEBUG_MSG("Note: FSK packet\n");
@@ -842,13 +897,14 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 				default: p->status = STAT_UNDEFINED;
 			}
 			p->modulation = MOD_FSK;
-			p->rssi = (RSSI_OFFSET_FSK + (float)buff[s+5])/RSSI_SLOPE_FSK;
+			p->rssi = (RSSI_OFFSET_FSK + (float)buff[sz+5])/RSSI_SLOPE_FSK;
 			p->snr = NAN;
 			p->snr_min = NAN;
 			p->snr_max = NAN;
 			p->bandwidth = fsk_rx_bw;
 			p->datarate = fsk_rx_dr;
 			p->coderate = CR_UNDEFINED;
+			timestamp_correction = 0; // TODO: implement FSK timestamp correction
 		} else {
 			DEBUG_MSG("ERROR: UNEXPECTED PACKET ORIGIN\n");
 			p->status = STAT_UNDEFINED;
@@ -860,10 +916,12 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			p->bandwidth = BW_UNDEFINED;
 			p->datarate = DR_UNDEFINED;
 			p->coderate = CR_UNDEFINED;
+			timestamp_correction = 0;
 		}
 		
-		p->count_us = (uint32_t)buff[s+6] + ((uint32_t)buff[s+7] << 8) + ((uint32_t)buff[s+8] << 16) + ((uint32_t)buff[s+9] << 24);
-		p->crc = (uint16_t)buff[s+10] + ((uint16_t)buff[s+11] << 8);
+		raw_timestamp = (uint32_t)buff[sz+6] + ((uint32_t)buff[sz+7] << 8) + ((uint32_t)buff[sz+8] << 16) + ((uint32_t)buff[sz+9] << 24);
+		p->count_us = raw_timestamp - timestamp_correction;
+		p->crc = (uint16_t)buff[sz+10] + ((uint16_t)buff[sz+11] << 8);
 		
 		/* get back info from configuration so that application doesn't have to keep track of it */
 		p->rf_chain = (uint8_t)if_rf_chain[p->if_chain];
@@ -887,6 +945,8 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	int transfer_size = 0; /* data to transfer from host to TX databuffer */
 	int payload_offset = 0; /* start of the payload content in the databuffer */
 	uint8_t power_nibble = 0; /* 4-bit value to set the firmware TX power */
+	uint32_t current_tstamp; /* current timestamp, to check for missed TX deadlines */
+	uint32_t deadline_tstamp; /* packet must be scheduled before that timestamp value is reached */
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -1095,6 +1155,13 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 			
 		case TIMESTAMPED:
 			lgw_reg_w(LGW_TX_TRIG_DELAYED, 1);
+			lgw_reg_r(LGW_TIMESTAMP, (int32_t *)&current_tstamp); /* unusable value if GPS is enabled */
+			deadline_tstamp = pkt_data.count_us - TX_START_DELAY; /* time at which the controller with start TX sequence */
+			if ((deadline_tstamp - current_tstamp) > 0x7FFFFFFF) {
+				lgw_reg_w(LGW_TX_TRIG_DELAYED, 0); /* cancel TX if deadline was missed */
+				DEBUG_MSG("ERROR: MISSED TX DEADLINE\n");
+			    return LGW_HAL_ERROR; // should return a specific error message
+			}
 			break;
 			
 		case ON_GPS:

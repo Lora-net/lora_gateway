@@ -1,5 +1,5 @@
 /* Software library version: */
-#define VERSION_LIBRARY			"1.0.0"
+#define VERSION_LIBRARY			"1.1.0"
 
 /* API version */
 #define VERSION_API				"1.0"

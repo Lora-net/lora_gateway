@@ -7,7 +7,10 @@
     ©2013 Semtech-Cycleo
 
 Description:
-	Lora gateway Hardware Abstraction Layer
+	Lora gateway auxiliary functions
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 

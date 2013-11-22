@@ -8,6 +8,9 @@
 
 Description:
 	firmware for RSSI survey
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Mathieu Leurent
 */
 
 static uint8_t rssi_firmware[MCU_AGC_FW_BYTE] = {

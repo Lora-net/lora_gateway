@@ -8,6 +8,9 @@
 
 Description:
 	Lora gateway Hardware Abstraction Layer
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 

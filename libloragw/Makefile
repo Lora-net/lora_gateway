@@ -61,7 +61,7 @@ endif
 obj/loragw_reg.o: .conf_ok src/loragw_reg.c inc/loragw_reg.h inc/loragw_spi.h
 	$(CC) -c $(C99FLAGS) src/loragw_reg.c -o obj/loragw_reg.o $(FLAG_REG)
 
-obj/loragw_hal.o: .conf_ok src/loragw_hal.c src/arb_fw.var src/agc_fw.var inc/loragw_hal.h inc/loragw_reg.h inc/loragw_spi.h inc/loragw_aux.h
+obj/loragw_hal.o: .conf_ok VERSION src/loragw_hal.c src/arb_fw.var src/agc_fw.var inc/loragw_hal.h inc/loragw_reg.h inc/loragw_spi.h inc/loragw_aux.h
 	$(CC) -c $(C99FLAGS) src/loragw_hal.c -o obj/loragw_hal.o -D LGW_PHY="\"$(LGW_PHY)\"" $(FLAG_HAL)
 
 # test programs

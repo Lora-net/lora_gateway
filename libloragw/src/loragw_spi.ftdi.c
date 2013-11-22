@@ -12,6 +12,9 @@ Description:
 	Single-byte read/write and burst read/write.
 	Does not handle pagination.
 	Could be used with multiple SPI ports in parallel (explicit file descriptor)
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 

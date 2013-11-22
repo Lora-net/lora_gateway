@@ -11,6 +11,9 @@ Description:
 	Registers are addressed by name.
 	Multi-bytes registers are handled automatically.
 	Read-modify-write is handled automatically.
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 

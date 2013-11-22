@@ -9,6 +9,9 @@
 Description:
 	Minimum test program for the loragw_spi 'library'
 	Use logic analyser to check the results.
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Sylvain Miermont
 */
 
 

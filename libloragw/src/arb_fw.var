@@ -8,6 +8,9 @@
 
 Description:
 	Arbiter firmware
+
+License: Revised BSD License, see LICENSE.TXT file include in the project
+Maintainer: Ludovic Champion
 */
 
 static uint8_t arb_firmware[MCU_ARB_FW_BYTE] = {

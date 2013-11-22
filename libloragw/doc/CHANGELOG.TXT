@@ -1,6 +1,15 @@
 Lora Gateway HAL changelog
 ==========================
 
+ v1.1.0
+---------------------
+
+ * Fixed bug 'no TX on radio B' (rfch 1)
+ * Added feature: concentrator processing delay compensation in the receive() function for accurate 'end of packet' even timestamping
+ * Added feature: TX 'start delay' compensation in the send() function to emit packet exactly on target timestamp
+ * Added feature: timestamp counter verification in send() function, return an error if scheduling was too late
+ * Switched license to 'Revised BSD'
+
  v1.0.0 (from beta 8)
 ---------------------
 
