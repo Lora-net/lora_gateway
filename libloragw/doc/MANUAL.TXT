@@ -200,14 +200,14 @@ started
 
 A typical application flow for using the HAL is the following:
 
-<configure the radios and IF+modems>
-<start the Lora gateway>
-loop {
-	<fetch packets that were received by the gateway>
-	<process, store and/or forward received packets>
-	<send packets through the gateway>
-}
-<stop the gateway>
+	<configure the radios and IF+modems>
+	<start the Lora gateway>
+	loop {
+		<fetch packets that were received by the gateway>
+		<process, store and/or forward received packets>
+		<send packets through the gateway>
+	}
+	<stop the gateway>
 
 **/!\ Warning** The lgw_send function is non-blocking and returns while the
 Lora gateway is still sending the packet, or even before the packet has started

@@ -82,8 +82,6 @@ int main()
 	unsigned long loop_cnt = 0;
 	uint8_t status_var = 0;
 	
-	FILE * reg_dump = NULL;
-	
 	/* configure signal handling */
 	sigemptyset(&sigact.sa_mask);
 	sigact.sa_flags = 0;
@@ -180,14 +178,21 @@ int main()
 	printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 	
 	/* connect, configure and start the Lora gateway */
-	lgw_start();
+	i = lgw_start();
+	if (i == LGW_HAL_SUCCESS) {
+		printf("*** Concentrator started ***\n");
+	} else {
+		printf("*** Impossible to start concentrator ***\n");
+		return -1;
+	}
 	
 	/* once configured, dump content of registers to a file, for reference */
-	reg_dump = fopen("reg_dump.log", "w");
-	if (reg_dump != NULL) {
-		lgw_reg_check(reg_dump);
-		fclose(reg_dump);
-	}
+	// FILE * reg_dump = NULL;
+	// reg_dump = fopen("reg_dump.log", "w");
+	// if (reg_dump != NULL) {
+		// lgw_reg_check(reg_dump);
+		// fclose(reg_dump);
+	// }
 	
 	while ((quit_sig != 1) && (exit_sig != 1)) {
 		loop_cnt++;

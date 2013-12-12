@@ -1,0 +1,54 @@
+	 / _____)             _              | |    
+	( (____  _____ ____ _| |_ _____  ____| |__  
+	 \____ \| ___ |    (_   _) ___ |/ ___)  _ \ 
+	 _____) ) ____| | | || |_| ____( (___| | | |
+	(______/|_____)_|_|_| \__)_____)\____)_| |_|
+		©2013 Semtech-Cycleo
+
+Lora Gateway HAL project
+=========================
+
+1. Core library: libloragw
+---------------------------
+
+This directory contains the sources of the library to build a gateway based on 
+a Semtech Lora multi-channel RF receiver.
+Once compiled all the code is contained in the libloragw.a file that will be 
+statically linked (ie. integrated in the final executable).
+
+The library also comes with a bunch of basic tests programs that are used to 
+test the different sub-modules of the library.
+
+2. Helper programs
+-------------------
+
+Those programs are included in the project to provide examples on how to use 
+the HAL library, and to help the system builder test different parts of it.
+
+### 2.1. loragw_band_survey ###
+
+This software is used to scan the RF band and measure background RSSI and some
+measurement of interferer pattern.
+
+### 2.2. loragw_pkt_logger ###
+
+This software is used to set up a Lora concentrator using a JSON configuration
+file and then record all the packets received in a log file, indefinitely, until
+the user stops the application.
+
+### 2.3. loragw_spi_stress ###
+
+This software is used to check the reliability of the link between the host
+platform (on which the program is run) and the Lora concentrator register file
+that is the interface through which all interaction with the Lora concentrator
+happens.
+
+### 2.4. loragw_tx_test ###
+
+This software is used to send test packets with a Lora concentrator. The packets
+contain little information, on no protocol (ie. MAC address) information but
+can be used to assess the functionality of a gateway downlink using other
+gateways as receivers.
+
+
+*EOF*

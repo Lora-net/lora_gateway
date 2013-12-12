@@ -27,11 +27,12 @@ with any later version of the library and the hardware, assuming the registers
 used for the tests are still present.
 
 The registers used are:
-LGW_VERSION
-LGW_IMPLICIT_PAYLOAD_LENGHT
-LGW_FSK_REF_PATTERN_LSB
-LGW_RX_DATA_BUF_ADDR
-LGW_RX_DATA_BUF_DATA
+ * LGW_VERSION
+ * LGW_IMPLICIT_PAYLOAD_LENGHT
+ * LGW_FSK_REF_PATTERN_LSB
+ * LGW_RX_DATA_BUF_ADDR
+ * LGW_RX_DATA_BUF_DATA
+
 A data buffer accessible through the 2 registers above must be implemented.
 
 3. Usage
@@ -53,8 +54,11 @@ to be sure that the data read back is coming from the hardware, and not from the
 internal buffer(s) of the software driver(s).
 
 Test 1 > R/W on a simple 8-bit register
+
 Test 2 > R/W on a simple 8-bit register with interstitial reads on VERSION
+
 Test 3 > R/W on a 32-bit register (short SPI bursts access)
+
 Test 4 > data buffer R/W (long SPI bursts access)
 
 4. Changelog

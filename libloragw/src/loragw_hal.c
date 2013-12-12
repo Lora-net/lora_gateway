@@ -454,11 +454,13 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 		return LGW_HAL_ERROR;
 	}
 	
-	/* check input parameters */
-	if (rf_chain > LGW_RF_CHAIN_NB) {
+	/* check input range (segfault prevention) */
+	if (rf_chain >= LGW_RF_CHAIN_NB) {
 		DEBUG_MSG("ERROR: NOT A VALID RF_CHAIN NUMBER\n");
 		return LGW_HAL_ERROR;
 	}
+	
+	/* check input parameters */
 	if (conf.freq_hz > rf_rx_upfreq[rf_chain]) {
 		DEBUG_MSG("ERROR: FREQUENCY TOO HIGH FOR THAT RF_CHAIN\n");
 		return LGW_HAL_ERROR;
@@ -483,6 +485,12 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 		return LGW_HAL_ERROR;
 	}
 	
+	/* check input range (segfault prevention) */
+	if (if_chain >= LGW_IF_CHAIN_NB) {
+		DEBUG_PRINTF("ERROR: %d NOT A VALID IF_CHAIN NUMBER\n", if_chain);
+		return LGW_HAL_ERROR;
+	}
+	
 	/* if chain is disabled, don't care about most parameters */
 	if (conf.enable == false) {
 		if_enable[if_chain] = false;
@@ -492,10 +500,6 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 	}
 	
 	/* check 'general' parameters */
-	if (if_chain > LGW_IF_CHAIN_NB) {
-		DEBUG_PRINTF("ERROR: %d NOT A VALID IF_CHAIN NUMBER\n", if_chain);
-		return LGW_HAL_ERROR;
-	}
 	if (ifmod_config[if_chain] == IF_UNDEFINED) {
 		DEBUG_PRINTF("ERROR: IF CHAIN %d NOT CONFIGURABLE\n", if_chain);
 	}
@@ -954,11 +958,13 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		return LGW_HAL_ERROR;
 	}
 	
-	/* check input variables */
+	/* check input range (segfault prevention) */
 	if (pkt_data.rf_chain >= LGW_RF_CHAIN_NB) {
 		DEBUG_MSG("ERROR: INVALID RF_CHAIN TO SEND PACKETS\n");
 		return LGW_HAL_ERROR;
 	}
+	
+	/* check input variables */
 	if (rf_enable[pkt_data.rf_chain] == false) {
 		DEBUG_MSG("ERROR: SELECTED RF_CHAIN IS DISABLED\n");
 		return LGW_HAL_ERROR;

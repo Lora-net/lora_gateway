@@ -3,7 +3,7 @@
 APP_NAME=loragw_band_survey
 
 ### constant symbols
-
+CROSS_COMPILE=
 CC=gcc
 CFLAGS=-O2 -Wall -Wextra -Iinc
 C99FLAGS=-O2 -Wall -Wextra -std=c99 -Iinc
@@ -31,7 +31,7 @@ clean:
 ### main program compilation and assembly
 
 obj/$(APP_NAME).o: src/$(APP_NAME).c src/rssi_fw.var
-	$(CC) -c $(C99FLAGS) -o obj/$(APP_NAME).o $(LGW_INC) src/$(APP_NAME).c $(FLAG_AUX)
+	$(CROSS_COMPILE)$(CC) -c $(C99FLAGS) -o obj/$(APP_NAME).o $(LGW_INC) src/$(APP_NAME).c $(FLAG_AUX)
 
 $(APP_NAME): $(LGW_PATH)/libloragw.a obj/$(APP_NAME).o
-	$(CC) -o $(APP_NAME) obj/$(APP_NAME).o -L$(LGW_PATH) $(LGW_LNK)
+	$(CROSS_COMPILE)$(CC) -o $(APP_NAME) obj/$(APP_NAME).o -L$(LGW_PATH) $(LGW_LNK)
