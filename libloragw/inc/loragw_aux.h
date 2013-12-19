@@ -7,7 +7,7 @@
     ©2013 Semtech-Cycleo
 
 Description:
-	Lora gateway auxiliary functions
+	Lora gateway library common auxiliary functions
 
 License: Revised BSD License, see LICENSE.TXT file include in the project
 Maintainer: Sylvain Miermont

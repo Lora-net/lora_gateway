@@ -1,8 +1,8 @@
 /* Software library version: */
-#define VERSION_LIBRARY			"1.1.0"
+#define VERSION_LIBRARY			"1.2.0"
 
 /* API version */
-#define VERSION_API				"1.0"
+#define VERSION_API				"1"
 
 /* Accepted value of CHIP_ID (SPI registers) must match reg default value in loragw_reg.c */
 #define ACCEPT_CHIP_ID			"1"

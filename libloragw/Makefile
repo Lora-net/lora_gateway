@@ -17,7 +17,7 @@ endif
 
 # general build targets
 
-all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal
+all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal test_loragw_gps
 
 clean:
 	rm -f *.a
@@ -43,8 +43,8 @@ endif
 
 # static library
 
-libloragw.a: obj/loragw_hal.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
-	$(CROSS_COMPILE)ar rcs libloragw.a obj/loragw_hal.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
+libloragw.a: obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
+	$(CROSS_COMPILE)ar rcs libloragw.a obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
 
 # library module target
 
@@ -62,8 +62,11 @@ endif
 obj/loragw_reg.o: .conf_ok src/loragw_reg.c inc/loragw_reg.h inc/loragw_spi.h
 	$(CROSS_COMPILE)$(CC) -c $(C99FLAGS) src/loragw_reg.c -o obj/loragw_reg.o $(FLAG_REG)
 
-obj/loragw_hal.o: .conf_ok VERSION src/loragw_hal.c src/arb_fw.var src/agc_fw.var inc/loragw_hal.h inc/loragw_reg.h inc/loragw_spi.h inc/loragw_aux.h
+obj/loragw_hal.o: .conf_ok src/loragw_hal.c inc/loragw_hal.h inc/loragw_reg.h inc/loragw_aux.h VERSION src/arb_fw.var src/agc_fw.var
 	$(CROSS_COMPILE)$(CC) -c $(C99FLAGS) src/loragw_hal.c -o obj/loragw_hal.o -D LGW_PHY="\"$(LGW_PHY)\"" $(FLAG_HAL)
+
+obj/loragw_gps.o: .conf_ok src/loragw_gps.c inc/loragw_gps.h
+	$(CROSS_COMPILE)$(CC) -c $(C99FLAGS) src/loragw_gps.c -o obj/loragw_gps.o $(FLAG_GPS)
 
 # test programs
 
@@ -72,7 +75,10 @@ test_loragw_spi: tst/test_loragw_spi.c obj/loragw_spi.o
 
 test_loragw_reg: tst/test_loragw_reg.c obj/loragw_reg.o obj/loragw_spi.o
 	$(CROSS_COMPILE)$(CC) $(C99FLAGS) tst/test_loragw_reg.c obj/loragw_reg.o obj/loragw_spi.o -o test_loragw_reg $(LDFLAGS)
-	
+
 test_loragw_hal: tst/test_loragw_hal.c obj/loragw_hal.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
 	$(CROSS_COMPILE)$(CC) $(C99FLAGS) tst/test_loragw_hal.c obj/loragw_hal.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o -o test_loragw_hal $(LDFLAGS)
+
+test_loragw_gps: tst/test_loragw_gps.c obj/loragw_gps.o obj/loragw_hal.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
+	$(CROSS_COMPILE)$(CC) $(C99FLAGS) tst/test_loragw_gps.c obj/loragw_gps.o obj/loragw_hal.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o -o test_loragw_gps $(LDFLAGS)
 

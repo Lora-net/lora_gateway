@@ -1,6 +1,14 @@
 Lora Gateway HAL changelog
 ==========================
 
+ v1.2.0
+---------------------
+
+ * Added feature: new GPS module in the library for synchronization
+ * Removed feature: no more missed deadline detection in TX because of incompatibility with GPS
+ * Added documentation for GPS and legal notice
+ * Added flags in Makefiles for easier cross-compilation
+
  v1.1.0
 ---------------------
 

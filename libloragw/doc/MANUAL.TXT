@@ -22,14 +22,15 @@ used to send and receive packets wirelessly using Lora or FSK modulations.
 2. Components of the library
 ----------------------------
 
-The library is composed of 4 modules:
+The library is composed of 5 modules:
 
 * loragw_hal
 * loragw_reg
 * loragw_spi
 * loragw_aux
+* loragw_gps
 
-The library also contains 3 test program to demonstrate code use and check
+The library also contains 4 test programs to demonstrate code use and check
 functionality.
 
 ### 2.1. loragw_hal ###
@@ -113,6 +114,33 @@ If the minimum delays are not guaranteed during the configuration and start
 procedure, the hardware might not work at nominal performance.
 Most likely, it will not work at all.
 
+### 2.5. loragw_gps ###
+
+This module contains functions to synchronize the concentrator internal 
+counter with an absolute time reference, in our case a GPS satellite receiver.
+
+The internal concentrator counter is used to timestamp incoming packets and to 
+triggers outgoing packets with a microsecond accuracy.
+In some cases, it might be useful to be able to transform that internal 
+timestamp (that is independent for each concentrator running in a typical 
+networked system) into an absolute UTC time.
+
+In a typical implementation a GPS specific thread will be called, doing the
+following things after opening the serial port:
+
+* blocking reads on the serial port (using system read() function)
+* parse NMEA sentences (using lgw_parse_nmea)
+
+And each time an RMC sentence has been received:
+* get the concentrator timestamp (using lgw_get_trigcnt, mutex needed to 
+  protect access to the concentrator)
+* get the UTC time contained in the NMEA sentence (using lgw_gps_get)
+* call the lgw_gps_sync function (use mutex to protect the time reference that 
+  should be a global shared variable).
+
+Then, in other threads, you can simply used that continuously adjusted time 
+reference to convert internal timestamps to UTC time (using lgw_cnt2utc) or 
+the other way around (using lgw_utc2cnt).
 
 3. Software dependencies
 ------------------------
@@ -167,6 +195,33 @@ Edit library.cfg to chose which SPI physical interface you want to use.
 You can use the test program test_loragw_spi to check with a logic analyser
 that the SPI communication is working
 
+### 4.3. GPS receiver (or other GNSS system) ###
+
+To use the GPS module of the library, the host must be connected to a GPS 
+receiver via a serial link (or an equivalent receiver using a different 
+satellite constellation).
+The serial link must appear as a "tty" device in the /dev/ directory, and the 
+user launching the program must have the proper system rights to read and 
+write on that device.
+Use `chmod a+rw` to allow all users to access that specific tty device, or use
+sudo to run all your programs (eg. `sudo ./test_loragw_gps`).
+
+In the current revision, the library only reads data from the serial port, 
+expecting to receive NMEA frames that are generally sent by GPS receivers as 
+soon as they are powered up.
+
+The GPS receiver __MUST__ send RMC NMEA sentences (starting with "$G<any 
+character>RMC") shortly after sending a PPS pulse on to allow internal 
+concentrator timestamps to be converted to absolute UTC time.
+If the GPS receiver sends a GGA sentence, the gateway 3D position will also be 
+available.
+
+The PPS pulse must be sent to the pin 22 of connector CONN400 on the Semtech 
+FPGA-based nano-concentrator board. Ground is available on pins 2 and 12 of 
+the same connector.
+The pin is loaded by an FPGA internal pull-down, and the signal level coming 
+in the FPGA must be 3.3V.
+Timing is captured on the rising edge of the PPS signal.
 
 5. Usage
 --------

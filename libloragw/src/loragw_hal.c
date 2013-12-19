@@ -296,7 +296,7 @@ int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 		DEBUG_MSG("ERROR: INVALID RF_CHAIN\n");
 		return -1;
 	}
-		
+	
 	sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL + 2); /* Enable 'clock out' for both radios */
 	sx125x_write(rf_chain, 0x26, 0X2D); /* Disable gm of oscillator block */
 	
@@ -669,7 +669,9 @@ int lgw_start(void) {
 	
 	/* configure Lora 'multi' demodulators aka. Lora 'sensor' channels (IF0-3) */
 	j = 0;
-	for(i=0;i<=7;++i) j += (if_rf_chain[i] == 1 ? 1 << i : 0); /* transform bool array into binary word */
+	for(i=0; i<=7; ++i) {
+		j += (if_rf_chain[i] == 1 ? 1 << i : 0); /* transform bool array into binary word */
+	}
 	lgw_reg_w(LGW_RADIO_SELECT, j); /* IF mapping to radio A/B (per bit, 0=A, 1=B) */
 	
 	lgw_reg_w(LGW_IF_FREQ_0, IF_HZ_TO_REG(if_freq[0])); /* default -384 */
@@ -694,7 +696,9 @@ int lgw_start(void) {
 			case BW_125KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW,0); break;
 			case BW_250KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW,1); break;
 			case BW_500KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW,2); break;
-			default: DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_bw); return LGW_HAL_ERROR;
+			default:
+				DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_bw);
+				return LGW_HAL_ERROR;
 		}
 		switch(lora_rx_sf) {
 			case DR_LORA_SF7: lgw_reg_w(LGW_MBWSSF_RATE_SF,7); break;
@@ -703,7 +707,9 @@ int lgw_start(void) {
 			case DR_LORA_SF10: lgw_reg_w(LGW_MBWSSF_RATE_SF,10); break;
 			case DR_LORA_SF11: lgw_reg_w(LGW_MBWSSF_RATE_SF,11); break;
 			case DR_LORA_SF12: lgw_reg_w(LGW_MBWSSF_RATE_SF,12); break;
-			default: DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_sf); return LGW_HAL_ERROR;
+			default:
+				DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_sf);
+				return LGW_HAL_ERROR;
 		}
 		lgw_reg_w(LGW_MBWSSF_PPM_OFFSET, lora_rx_ppm_offset); /* default 0 */
 		lgw_reg_w(LGW_MBWSSF_MODEM_ENABLE, 1); /* default 0 */
@@ -729,6 +735,9 @@ int lgw_start(void) {
 	/* Get MCUs out of reset */
 	lgw_reg_w(LGW_MCU_RST_0, 0);
 	lgw_reg_w(LGW_MCU_RST_1, 0);
+	
+	/* enable GPS event capture */
+	lgw_reg_w(LGW_GPS_EN,1);
 	
 	/* enable LEDs */
 	lgw_reg_w(LGW_GPIO_MODE,31);
@@ -786,7 +795,6 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		
 		/* how many packets are in the RX buffer ? Break if zero */
 		if (buff[0] == 0) {
-			DEBUG_MSG("Note: RX packet buffer empty, receive function returning nothing\n");
 			break; /* no more packets to fetch, exit out of FOR loop */
 		}
 		
@@ -949,8 +957,6 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	int transfer_size = 0; /* data to transfer from host to TX databuffer */
 	int payload_offset = 0; /* start of the payload content in the databuffer */
 	uint8_t power_nibble = 0; /* 4-bit value to set the firmware TX power */
-	uint32_t current_tstamp; /* current timestamp, to check for missed TX deadlines */
-	uint32_t deadline_tstamp; /* packet must be scheduled before that timestamp value is reached */
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -1022,11 +1028,6 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		power_nibble = 0xF; /* maximum power ~25.5 dBm, 24 after filter */
 	}
 	// TODO: implement LUT in the firmware and matched value in the HAL
-	
-	/* reset TX command flags */
-	lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 0);
-	lgw_reg_w(LGW_TX_TRIG_DELAYED, 0);
-	lgw_reg_w(LGW_TX_TRIG_GPS, 0);
 	
 	/* fixed metadata, useful payload and misc metadata compositing */
 	transfer_size = TX_METADATA_NB + pkt_data.size; /*  */
@@ -1148,6 +1149,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	/* copy payload from user struct to buffer containing metadata */
 	memcpy((void *)(buff + payload_offset), (void *)(pkt_data.payload), pkt_data.size);
 	
+	/* reset TX command flags */
+	lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 0);
+	lgw_reg_w(LGW_TX_TRIG_DELAYED, 0);
+	lgw_reg_w(LGW_TX_TRIG_GPS, 0);
+	
 	/* put metadata + payload in the TX data buffer */
 	lgw_reg_w(LGW_TX_DATA_BUF_ADDR, 0);
 	lgw_reg_wb(LGW_TX_DATA_BUF_DATA, buff, transfer_size);
@@ -1161,13 +1167,6 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 			
 		case TIMESTAMPED:
 			lgw_reg_w(LGW_TX_TRIG_DELAYED, 1);
-			lgw_reg_r(LGW_TIMESTAMP, (int32_t *)&current_tstamp); /* unusable value if GPS is enabled */
-			deadline_tstamp = pkt_data.count_us - TX_START_DELAY; /* time at which the controller with start TX sequence */
-			if ((deadline_tstamp - current_tstamp) > 0x7FFFFFFF) {
-				lgw_reg_w(LGW_TX_TRIG_DELAYED, 0); /* cancel TX if deadline was missed */
-				DEBUG_MSG("ERROR: MISSED TX DEADLINE\n");
-			    return LGW_HAL_ERROR; // should return a specific error message
-			}
 			break;
 			
 		case ON_GPS:
@@ -1212,6 +1211,21 @@ int lgw_status(uint8_t select, uint8_t *code) {
 		return LGW_HAL_ERROR;
 	}
 	
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+int lgw_get_trigcnt(uint32_t* trig_cnt_us) {
+	int i;
+	int32_t val;
+	
+	i = lgw_reg_r(LGW_TIMESTAMP, &val);
+	if (i == LGW_REG_SUCCESS) {
+		*trig_cnt_us = (uint32_t)val;
+		return LGW_HAL_SUCCESS;
+	} else {
+		return LGW_HAL_ERROR;
+	}
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
