@@ -1,6 +1,12 @@
 Lora Gateway HAL changelog
 ==========================
 
+ v1.2.1
+---------------------
+
+ * Fixed 'floating point exception' crash when concentrator returned a packet with SF=0 (CRC error on Lora header)
+ * Fixed buggy timezone handling
+
  v1.2.0
 ---------------------
 

@@ -53,6 +53,7 @@ Maintainer: Sylvain Miermont
 	#define DEBUG_ARRAY(a,b,c)			for(a=0;a!=0;){}
 	#define CHECK_NULL(a)				if(a==NULL){return LGW_GPS_ERROR;}
 #endif
+#define TRACE() 		fprintf(stderr, "@ %s %d\n", __FUNCTION__, __LINE__);
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
@@ -306,6 +307,9 @@ int lgw_gps_enable(char *tty_path, char *gps_familly, speed_t target_brate, int 
 	}
 	tcflush(gps_tty_dev, TCIOFLUSH);
 	
+	/* get timezone info */
+	tzset();
+	
 	/* initialize global variables */
 	gps_time_ok = false;
 	gps_pos_ok = false;
@@ -429,7 +433,7 @@ int lgw_gps_get(struct timespec *utc, struct coord_s *loc, struct coord_s *err) 
 		x.tm_hour = gps_hou;
 		x.tm_min = gps_min;
 		x.tm_sec = gps_sec;
-		y = mktime(&x);
+		y = mktime(&x) - timezone; /* need to substract timezone bc mktime assumes time vector is local time */
 		if (y == (time_t)(-1)) {
 			DEBUG_MSG("ERROR: FAILED TO CONVERT BROKEN-DOWN TIME\n");
 			return LGW_GPS_ERROR;
@@ -470,20 +474,21 @@ int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc) {
 	CHECK_NULL(ref);
 	
 	/* calculate the slope */
-	cnt_diff = (count_us - ref->count_us) / TS_CPS; /* uncorrected by xtal_err */
-	utc_diff = (utc.tv_sec - (ref->utc).tv_sec) + 1E-9 * (utc.tv_nsec - (ref->utc).tv_nsec);
-	if (utc_diff == 0.0) { // prevent divide by zero
-		DEBUG_MSG("ERROR: ATTEMPT TO DIVIDE BY ZERO\n");
-		return LGW_GPS_ERROR;
-	}
+	cnt_diff = (double)(count_us - ref->count_us) / (double)(TS_CPS); /* uncorrected by xtal_err */
+	utc_diff = (double)(utc.tv_sec - (ref->utc).tv_sec) + (1E-9 * (double)(utc.tv_nsec - (ref->utc).tv_nsec));
 	
 	/* detect aberrant points by measuring if slope limits are exceeded */
-	slope = cnt_diff/utc_diff;
-	if ((slope > PLUS_10PPM) || (slope < MINUS_10PPM)) {
-		DEBUG_MSG("Warning: correction range exceeded\n");
-		aber_n0 = true;
+	if (utc_diff != 0) { // prevent divide by zero
+		slope = cnt_diff/utc_diff;
+		if ((slope > PLUS_10PPM) || (slope < MINUS_10PPM)) {
+			DEBUG_MSG("Warning: correction range exceeded\n");
+			aber_n0 = true;
+		} else {
+			aber_n0 = false;
+		}
 	} else {
-		aber_n0 = false;
+		DEBUG_MSG("Warning: aberrant UTC value for synchronization\n");
+		aber_n0 = true;
 	}
 	
 	/* watch if the 3 latest sync point were aberrant or not */

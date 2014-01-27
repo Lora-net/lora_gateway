@@ -20,7 +20,6 @@ Maintainer: Sylvain Miermont
 #include <stdint.h>		/* C99 types */
 #include <stdbool.h>	/* bool type */
 #include <stdio.h>		/* printf fprintf */
-#include <math.h>		/* NaN */
 #include <string.h>		/* memcpy */
 
 #include "loragw_reg.h"
@@ -45,6 +44,7 @@ Maintainer: Sylvain Miermont
 
 #define IF_HZ_TO_REG(f)		(f << 5)/15625
 #define	SET_PPM_ON(bw,dr)	(((bw == BW_125KHZ) && ((dr == DR_LORA_SF11) || (dr == DR_LORA_SF12))) || ((bw == BW_250KHZ) && (dr == DR_LORA_SF12)))
+#define TRACE() 		fprintf(stderr, "@ %s %d\n", __FUNCTION__, __LINE__);
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
@@ -763,13 +763,13 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 	int nb_pkt_fetch; /* loop variable and return value */
 	struct lgw_pkt_rx_s *p; /* pointer to the current structure in the struct array */
 	uint8_t buff[255+RX_METADATA_NB]; /* buffer to store the result of SPI read bursts */
-	int sz; /* size of the payload, uses to address metadata */
+	unsigned sz; /* size of the payload, uses to address metadata */
 	int ifmod; /* type of if_chain/modem a packet was received by */
 	int stat_fifo; /* the packet status as indicated in the FIFO */
 	uint32_t raw_timestamp; /* timestamp when internal 'RX finished' was triggered */
+	uint32_t delay_x, delay_y, delay_z; /* temporary variable for timestamp offset calculation */
 	uint32_t timestamp_correction; /* correction to account for processing delay */
-	uint8_t sf, cr, bw; /* used to calculate timestamp correction */
-	uint8_t crc_en, ppm; /* used to calculate timestamp correction */
+	uint32_t sf, cr, bw_pow, crc_en, ppm; /* used to calculate timestamp correction */
 	
 	/* check if the gateway is running */
 	if (lgw_is_started == false) {
@@ -864,41 +864,51 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 				default: p->coderate = CR_UNDEFINED;
 			}
 			
-			/* timestamp correction code */
-			if (ifmod == IF_LORA_STD) { /* if packet was received on the stand-alone lora modem */
-				switch (lora_rx_bw) {
-					case BW_125KHZ:
-						timestamp_correction = 64;
-						bw = 1;
-						break;
-					case BW_250KHZ:
-						timestamp_correction = 32;
-						bw = 2;
-						break;
-					case BW_500KHZ:
-						timestamp_correction = 16;
-						bw = 4;
-						break;
-					default:
-						DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", p->bandwidth);	
-						timestamp_correction = 0;
-						bw = 0;
-				}
-			} else { /* packet was received on one of the sensor channels = 125kHz */
-				timestamp_correction = 114;
-				bw = 1;
-			}
+			/* determine if 'PPM mode' is on, needed for timestamp correction */
 			if (SET_PPM_ON(p->bandwidth,p->datarate)) {
 				ppm = 1;
 			} else {
 				ppm = 0;
-			}	
-			if ((2*(sz + 2*crc_en) - sf +7) <= 0) { /* payload fits entirely in first 8 symbols */
-				timestamp_correction += (((1<<(sf-1)) * (sf+1)) + (3*(1<<(sf-4))))/bw;
-				timestamp_correction += 32 * (2*(sz+2*crc_en) + 5)/bw;
+			}
+			
+			/* timestamp correction code, base delay */
+			if (ifmod == IF_LORA_STD) { /* if packet was received on the stand-alone lora modem */
+				switch (lora_rx_bw) {
+					case BW_125KHZ:
+						delay_x = 64;
+						bw_pow = 1;
+						break;
+					case BW_250KHZ:
+						delay_x = 32;
+						bw_pow = 2;
+						break;
+					case BW_500KHZ:
+						delay_x = 16;
+						bw_pow = 4;
+						break;
+					default:
+						DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", p->bandwidth);	
+						delay_x = 0;
+						bw_pow = 0;
+				}
+			} else { /* packet was received on one of the sensor channels = 125kHz */
+				delay_x = 114;
+				bw_pow = 1;
+			}
+			
+			/* timestamp correction code, variable delay */
+			if ((sf >= 6) && (sf <= 12) && (bw_pow > 0)) {
+				if ((2*(sz + 2*crc_en) - (sf-7)) <= 0) { /* payload fits entirely in first 8 symbols */
+					delay_y = ( ((1<<(sf-1)) * (sf+1)) + (3 * (1<<(sf-4))) ) / bw_pow;
+					delay_z = 32 * (2*(sz+2*crc_en) + 5) / bw_pow;
+				} else {
+					delay_y = ( ((1<<(sf-1)) * (sf+1)) + ((4 - ppm) * (1<<(sf-4))) ) / bw_pow;
+					delay_z = (16 + 4*cr) * (((2*(sz+2*crc_en)-sf+6) % (sf - 2*ppm)) + 1) / bw_pow;
+				}
+				timestamp_correction = delay_x + delay_y + delay_z;
 			} else {
-				timestamp_correction += (((1<<(sf-1)) * (sf+1)) + ((4.0-ppm)/4.0*(1<<(sf-2))))/bw;
-				timestamp_correction += (16 + 4*cr) * (((2*(sz+2*crc_en)-sf + 6) % (sf-2*ppm) +1) / bw);
+				timestamp_correction = 0;
+				DEBUG_MSG("WARNING: invalid packet, no timestamp correction\n");
 			}
 		} else if (ifmod == IF_FSK_STD) {
 			DEBUG_MSG("Note: FSK packet\n");
@@ -910,9 +920,9 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			}
 			p->modulation = MOD_FSK;
 			p->rssi = (RSSI_OFFSET_FSK + (float)buff[sz+5])/RSSI_SLOPE_FSK;
-			p->snr = NAN;
-			p->snr_min = NAN;
-			p->snr_max = NAN;
+			p->snr = -128.0;
+			p->snr_min = -128.0;
+			p->snr_max = -128.0;
 			p->bandwidth = fsk_rx_bw;
 			p->datarate = fsk_rx_dr;
 			p->coderate = CR_UNDEFINED;
@@ -921,10 +931,10 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			DEBUG_MSG("ERROR: UNEXPECTED PACKET ORIGIN\n");
 			p->status = STAT_UNDEFINED;
 			p->modulation = MOD_UNDEFINED;
-			p->rssi = NAN;
-			p->snr = NAN;
-			p->snr_min = NAN;
-			p->snr_max = NAN;
+			p->rssi = -128.0;
+			p->snr = -128.0;
+			p->snr_min = -128.0;
+			p->snr_max = -128.0;
 			p->bandwidth = BW_UNDEFINED;
 			p->datarate = DR_UNDEFINED;
 			p->coderate = CR_UNDEFINED;

@@ -234,16 +234,14 @@ int parse_SX1301_configuration(const char * conf_file) {
 			ifconf.rf_chain = (uint32_t)json_object_dotget_number(conf, "chan_FSK.radio");
 			ifconf.freq_hz = (int32_t)json_object_dotget_number(conf, "chan_FSK.if");
 			bw = (uint32_t)json_object_dotget_number(conf, "chan_FSK.bandwidth");
-			switch(bw) {
-				case 500000: ifconf.bandwidth = BW_500KHZ; break;
-				case 250000: ifconf.bandwidth = BW_250KHZ; break;
-				case 125000: ifconf.bandwidth = BW_125KHZ; break;
-				case  62500: ifconf.bandwidth = BW_62K5HZ; break;
-				case  31200: ifconf.bandwidth = BW_31K2HZ; break;
-				case  15600: ifconf.bandwidth = BW_15K6HZ; break;
-				case   7800: ifconf.bandwidth = BW_7K8HZ;  break;
-				default: ifconf.bandwidth = BW_UNDEFINED;
-			}
+			if      (bw <= 7800)   ifconf.bandwidth = BW_7K8HZ;
+			else if (bw <= 15600)  ifconf.bandwidth = BW_15K6HZ;
+			else if (bw <= 31200)  ifconf.bandwidth = BW_31K2HZ;
+			else if (bw <= 62500)  ifconf.bandwidth = BW_62K5HZ;
+			else if (bw <= 125000) ifconf.bandwidth = BW_125KHZ;
+			else if (bw <= 250000) ifconf.bandwidth = BW_250KHZ;
+			else if (bw <= 500000) ifconf.bandwidth = BW_500KHZ;
+			else ifconf.bandwidth = BW_UNDEFINED;
 			ifconf.datarate = (uint32_t)json_object_dotget_number(conf, "chan_FSK.datarate");
 			MSG("INFO: FSK channel enabled, radio %i selected, IF %i Hz, %u Hz bandwidth, %u bps datarate\n", ifconf.rf_chain, ifconf.freq_hz, bw, ifconf.datarate);
 		}
