@@ -60,6 +60,7 @@ Maintainer: Sylvain Miermont
 /* SPI initialization and configuration */
 int lgw_spi_open(void **spi_target_ptr) {
 	struct mpsse_context *mpsse = NULL;
+	int a, b;
 	
 	/* check input variables */
 	CHECK_NULL(spi_target_ptr); /* cannot be null, must point on a void pointer (*spi_target_ptr can be null) */
@@ -72,6 +73,15 @@ int lgw_spi_open(void **spi_target_ptr) {
 	}
 	if (mpsse->open != 1) {
 		DEBUG_MSG("ERROR: MPSSE OPEN FUNCTION FAILED\n");
+		return LGW_SPI_ERROR;
+	}
+	
+	/* toggle pin ADBUS5 of the FT2232H */
+	/* On the Semtech reference board, it resets the SX1301 */
+	a = PinHigh(mpsse, GPIOL1);
+	b = PinLow(mpsse, GPIOL1);
+	if ((a != MPSSE_OK) || (b != MPSSE_OK)) {
+		DEBUG_MSG("ERROR: IMPOSSIBLE TO TOGGLE GPIOL1/ADBUS5\n");
 		return LGW_SPI_ERROR;
 	}
 	

@@ -1,6 +1,11 @@
 Lora Gateway HAL changelog
 ==========================
 
+ v1.2.2
+---------------------
+
+ * Added a GPIO toggle on the FTDI SPI module to reset the SX1301 board.
+
  v1.2.1
 ---------------------
 
