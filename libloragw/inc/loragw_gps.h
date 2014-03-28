@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Library of functions to manage a GNSS module (typically GPS) for accurate 
@@ -33,6 +33,8 @@ Maintainer: Sylvain Miermont
 #include <time.h>		/* time library */
 #include <termios.h>	/* speed_t */
 
+#include "config.h"	/* library configuration options (dynamically generated) */
+
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC TYPES --------------------------------------------------------- */
 
@@ -44,7 +46,7 @@ struct tref {
 	time_t		systime; 	/*!> system time when solution was calculated */
 	uint32_t	count_us; 	/*!> reference concentrator internal timestamp */
 	struct timespec utc; 	/*!> reference UTC time (from GPS) */
-	double		xtal_err;	/*!> clock error estimation (eg. <1 'slow' XTAL) */
+	double		xtal_err;	/*!> raw clock error (eg. <1 'slow' XTAL) */
 };
 
 /**
@@ -119,7 +121,7 @@ lock must be acquired before calling either function.
 enum gps_msg lgw_parse_nmea(char* serial_buff, int buff_size);
 
 /**
-@brief Get the GPS solution (space & time) for the gateway
+@brief Get the GPS solution (space & time) for the concentrator
 
 @param utc pointer to store UTC time, with ns precision (NULL to ignore)
 @param loc pointer to store coordinates (NULL to ignore)
@@ -150,7 +152,7 @@ int lgw_gps_sync(struct tref* ref, uint32_t count_us, struct timespec utc);
 @brief Convert concentrator timestamp counter value to UTC time
 
 @param ref time reference structure required for time conversion
-@param count_us internal timestamp counter of a Lora gateway
+@param count_us internal timestamp counter of the LoRa concentrator
 @param utc pointer to store UTC time, with ns precision (leap seconds ignored)
 @return success if the function was able to convert timestamp to UTC
 
@@ -165,7 +167,7 @@ int lgw_cnt2utc(struct tref ref, uint32_t count_us, struct timespec* utc);
 
 @param ref time reference structure required for time conversion
 @param utc UTC time, with ns precision (leap seconds are ignored)
-@param count_us pointer to store internal timestamp counter of a Lora gateway
+@param count_us pointer to store internal timestamp counter of LoRa concentrator
 @return success if the function was able to convert UTC to timestamp
 
 This function is typically used when a packet must be sent at an accurate time 

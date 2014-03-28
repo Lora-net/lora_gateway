@@ -1,0 +1,46 @@
+#  / _____)             _              | |
+# ( (____  _____ ____ _| |_ _____  ____| |__
+#  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
+#  _____) ) ____| | | || |_| ____( (___| | | |
+# (______/|_____)_|_|_| \__)_____)\____)_| |_|
+#  (C)2013 Semtech-Cycleo
+#
+# Description:
+#	Installation procedure for FTDI SPI-over-USB dependencies
+
+# [STEP 1] Install libftdi
+sudo apt-get install libftdi-dev
+
+# this should install :
+# - libftdi-dev 0.19-4 (armhf)
+# - libftdil 0.19-4 (armhf)
+# - libusb-dev 2:0.1.12-20 (armhf)
+
+# [STEP 2] Download and unpack the libMPSSE 1.3
+# File must match SHA1 Checksum: 1b994a23b118f83144261e3e786c43df74a81cd5
+wget http://libmpsse.googlecode.com/files/libmpsse-1.3.tar.gz
+sha1sum libmpsse-1.3.tar.gz
+tar -xzvf libmpsse-1.3.tar.gz
+
+# Go to the src directory and install the library
+./configure --disable-python
+make
+sudo make install
+# Static and dynamic libraries compiled code is put into /usr/local/lib
+# Header file is put into /usr/local/include
+
+# On the Pcduino, you must regenerate the library cache (might some time).
+sudo ldconfig
+
+# [STEP 3] to allow non-root applications to access the FTDI device on USB
+# copy the provided 99-libftdi.rules file in /etc/udev/rules.d
+# For the nano board, only the FT2232H line is required.
+# Non-root users members of plugdev group will be able to access the device.
+
+# [STEP 4] Unpack the LoRa Gateway project and go to its directory.
+# Configure build options in library.cfg, then build the library and examples.
+make all
+
+# [STEP 5] Connect a nanoconcentrator and run test_loragw_reg to test that
+# you have access to LoRa registers.
+# Less than 50 registers of the ~300 registers should return a mismatch.

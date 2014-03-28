@@ -1,0 +1,66 @@
+{
+	"SX1301_conf": {
+		"radio_0": {
+			"enable": false,
+			"freq": 0
+		},
+		"chan_multiSF_0": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_1": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_2": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_3": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_4": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_5": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_6": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_7": {
+			"enable": false,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_Lora_std": {
+			"enable": false,
+			"radio": 0,
+			"if": 0,
+			"bandwidth": 250000,
+			"spread_factor": 7
+		},
+		
+		"chan_FSK": {
+			"enable": false,
+			"radio": 0,
+			"if": 100000,
+			"bandwidth": 250000,
+			"datarate": 100000
+		}
+	},
+	"gateway_conf": {
+		"gateway_ID": "AA555A0000000000"
+	}
+}

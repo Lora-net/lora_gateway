@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Minimum test program for the loragw_hal 'library'
@@ -38,6 +38,27 @@ Maintainer: Sylvain Miermont
 /* --- PRIVATE MACROS ------------------------------------------------------- */
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+
+/* -------------------------------------------------------------------------- */
+/* --- PRIVATE CONSTANTS ---------------------------------------------------- */
+
+#if ((CFG_BAND_868 == 1) || ((CFG_BAND_FULL == 1) && (CFG_RADIO_1257 == 1)))
+	#define	F_RX_0	866000000
+	#define	F_RX_1	868000000
+	#define	F_TX	867000000
+#elif (CFG_BAND_915 == 1)
+	#define	F_RX_0	914000000
+	#define	F_RX_1	916000000
+	#define	F_TX	915000000
+#elif ((CFG_BAND_470 == 1) || ((CFG_BAND_FULL == 1) && (CFG_RADIO_1255 == 1)))
+	#define	F_RX_0	471000000
+	#define	F_RX_1	473000000
+	#define	F_TX	472000000
+#elif (CFG_BAND_433 == 1)
+	#define	F_RX_0	433500000
+	#define	F_RX_1	434300000
+	#define	F_TX	433900000
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -90,55 +111,83 @@ int main()
 	sigaction(SIGINT, &sigact, NULL);
 	sigaction(SIGTERM, &sigact, NULL);
 	
-	/* beginning of Lora gateway-specific code */
+	/* beginning of LoRa concentrator-specific code */
 	printf("Beginning of test for loragw_hal.c\n");
+	
+	printf("*** Library version information ***\n%s\n\n", lgw_version_info());
 	
 	/* set configuration for RF chains */
 	memset(&rfconf, 0, sizeof(rfconf));
 	
 	rfconf.enable = true;
-	rfconf.freq_hz = 866000000;
-	lgw_rxrf_setconf(0, rfconf); /* radio A */
+	rfconf.freq_hz = F_RX_0;
+	lgw_rxrf_setconf(0, rfconf); /* radio A, f0 */
 	
 	rfconf.enable = true;
-	rfconf.freq_hz = 868000000;
-	lgw_rxrf_setconf(1, rfconf); /* radio B */
+	rfconf.freq_hz = F_RX_1;
+	lgw_rxrf_setconf(1, rfconf); /* radio B, f1 */
 	
-	/* set configuration for Lora multi-SF channels (bandwidth cannot be set) */
+	/* set configuration for LoRa multi-SF channels (bandwidth cannot be set) */
 	memset(&ifconf, 0, sizeof(ifconf));
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = -300000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(0, ifconf); /* chain 0: Lora 125kHz, all SF, on 865.7 MHz */
+	lgw_rxif_setconf(0, ifconf); /* chain 0: LoRa 125kHz, all SF, on f0 - 0.3 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = 300000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(1, ifconf); /* chain 1: Lora 125kHz, all SF, on 866.3 MHz */
+	lgw_rxif_setconf(1, ifconf); /* chain 1: LoRa 125kHz, all SF, on f0 + 0.3 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
 	ifconf.freq_hz = -300000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(2, ifconf); /* chain 2: Lora 125kHz, all SF, on 867.7 MHz */
+	lgw_rxif_setconf(2, ifconf); /* chain 2: LoRa 125kHz, all SF, on f1 - 0.3 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
 	ifconf.freq_hz = 300000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(3, ifconf); /* chain 3: Lora 125kHz, all SF, on 868.3 MHz */
+	lgw_rxif_setconf(3, ifconf); /* chain 3: LoRa 125kHz, all SF, on f1 + 0.3 MHz */
 	
-	/* set configuration for Lora 'stand alone' channel */
+	#if (LGW_MULTI_NB >= 8)
+	ifconf.enable = true;
+	ifconf.rf_chain = 0;
+	ifconf.freq_hz = -100000;
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(4, ifconf); /* chain 4: LoRa 125kHz, all SF, on f0 - 0.1 MHz */
+	
+	ifconf.enable = true;
+	ifconf.rf_chain = 0;
+	ifconf.freq_hz = 100000;
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(5, ifconf); /* chain 5: LoRa 125kHz, all SF, on f0 + 0.1 MHz */
+	
+	ifconf.enable = true;
+	ifconf.rf_chain = 1;
+	ifconf.freq_hz = -100000;
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(6, ifconf); /* chain 6: LoRa 125kHz, all SF, on f1 - 0.1 MHz */
+	
+	ifconf.enable = true;
+	ifconf.rf_chain = 1;
+	ifconf.freq_hz = 100000;
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(7, ifconf); /* chain 7: LoRa 125kHz, all SF, on f1 + 0.1 MHz */
+	#endif
+	
+	/* set configuration for LoRa 'stand alone' channel */
 	memset(&ifconf, 0, sizeof(ifconf));
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = 0;
 	ifconf.bandwidth = BW_250KHZ;
 	ifconf.datarate = DR_LORA_SF10;
-	lgw_rxif_setconf(8, ifconf); /* chain 8: Lora 250kHz, SF10, on 866.0 MHz */
+	lgw_rxif_setconf(8, ifconf); /* chain 8: LoRa 250kHz, SF10, on f0 MHz */
 	
 	/* set configuration for FSK channel */
 	memset(&ifconf, 0, sizeof(ifconf));
@@ -147,13 +196,14 @@ int main()
 	ifconf.freq_hz = 0;
 	ifconf.bandwidth = BW_250KHZ;
 	ifconf.datarate = 64000;
-	lgw_rxif_setconf(9, ifconf); /* chain 9: FSK 64kbps, on 868.0 MHz */
+	lgw_rxif_setconf(9, ifconf); /* chain 9: FSK 64kbps, on f1 MHz */
 	
 	/* set configuration for TX packet */
 	
 	memset(&txpkt, 0, sizeof(txpkt));
-	txpkt.freq_hz = 867000000;
+	txpkt.freq_hz = F_TX;
 	txpkt.tx_mode = IMMEDIATE;
+	txpkt.rf_power = 10;
 	txpkt.modulation = MOD_LORA;
 	txpkt.bandwidth = BW_250KHZ;
 	txpkt.datarate = DR_LORA_SF10;
@@ -164,8 +214,9 @@ int main()
 	txpkt.rf_chain = 0;
 /*	
 	memset(&txpkt, 0, sizeof(txpkt));
-	txpkt.freq_hz = 867000000;
+	txpkt.freq_hz = F_TX;
 	txpkt.tx_mode = IMMEDIATE;
+	txpkt.rf_power = 10;
 	txpkt.modulation = MOD_FSK;
 	txpkt.f_dev = 50;
 	txpkt.datarate = 64000;
@@ -175,9 +226,7 @@ int main()
 	txpkt.rf_chain = 0;
 */	
 	
-	printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
-	
-	/* connect, configure and start the Lora gateway */
+	/* connect, configure and start the LoRa concentrator */
 	i = lgw_start();
 	if (i == LGW_HAL_SUCCESS) {
 		printf("*** Concentrator started ***\n");
@@ -212,7 +261,7 @@ int main()
 					printf(" tstamp:%010u", p->count_us);
 					printf(" size:%3u", p->size);
 					switch (p-> modulation) {
-						case MOD_LORA: printf(" Lora"); break;
+						case MOD_LORA: printf(" LoRa"); break;
 						case MOD_FSK: printf(" FSK"); break;
 						default: printf(" modulation?");
 					}

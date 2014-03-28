@@ -4,10 +4,10 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
-	Lora gateway Hardware Abstraction Layer
+	LoRa concentrator Hardware Abstraction Layer
 
 License: Revised BSD License, see LICENSE.TXT file include in the project
 Maintainer: Sylvain Miermont
@@ -47,21 +47,23 @@ Maintainer: Sylvain Miermont
 #define TRACE() 		fprintf(stderr, "@ %s %d\n", __FUNCTION__, __LINE__);
 
 /* -------------------------------------------------------------------------- */
-/* --- PRIVATE CONSTANTS ---------------------------------------------------- */
+/* --- PRIVATE CONSTANTS & TYPES -------------------------------------------- */
 
 #define		MCU_ARB		0
 #define		MCU_AGC		1
 
-const uint8_t ifmod_config[LGW_IF_CHAIN_NB] = LGW_IFMODEM_CONFIG; /* define hardware capability */
-
-const uint32_t rf_rx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_RX_LOWFREQ;
-const uint32_t rf_rx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_RX_UPFREQ;
-const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
-const uint32_t rf_tx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_LOWFREQ;
-const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
-
 #define		MCU_ARB_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
 #define		MCU_AGC_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
+
+#define		TX_METADATA_NB		16
+#define		RX_METADATA_NB		16
+
+#define		MIN_LORA_PREAMBLE		4
+#define		STD_LORA_PREAMBLE		6
+#define		MIN_FSK_PREAMBLE		3
+#define		PLL_LOCK_MAX_ATTEMPTS	5
+
+#define		TX_START_DELAY		1500
 
 /*
 SX1257 frequency setting :
@@ -69,6 +71,12 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
                   = F_rf (Hz) * 2^19 / F_xtal(Hz)
                   = F_rf (Hz) * 2^19 / 32e6
                   = F_rf (Hz) * 256/15625
+
+SX1255 frequency setting :
+F_register(24bit) = F_rf (Hz) / F_step(Hz)
+                  = F_rf (Hz) * 2^20 / F_xtal(Hz)
+                  = F_rf (Hz) * 2^20 / 32e6
+                  = F_rf (Hz) * 512/15625
 */
 #define 	SX125x_32MHz_FRAC	15625	/* irreductible fraction for PLL register caculation */
 
@@ -80,33 +88,209 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define		SX125x_TX_DAC_BW		7	/* 24 + 8*TxDacBw Nb FIR taps (default 2) */
 #define		SX125x_RX_LNA_GAIN		1	/* 1 to 6, 1 highest gain */
 #define		SX125x_RX_BB_GAIN		12	/* 0 to 15 , 15 highest gain */
-#define		SX125x_RX_ADC_BW		7	/* 0 to 7, 2:100<BW<200, 5:200<BW<400,7:400<BW (kHz) */
+#define 	SX125x_LNA_ZIN			1	/* 0:50, 1:200 Ohms (default 1) */
+#define		SX125x_RX_ADC_BW		7	/* 0 to 7, 2:100<BW<200, 5:200<BW<400,7:400<BW kHz SSB (default 7) */
 #define		SX125x_RX_ADC_TRIM		6	/* 0 to 7, 6 for 32MHz ref, 5 for 36MHz ref */
-#define		SX125x_RXBB_BW			2
+#define 	SX125x_RX_BB_BW			0	/* 0:750, 1:500, 2:375; 3:250 kHz SSB (default 1, max 3) */
+#define 	SX125x_RX_PLL_BW		0	/* 0:75, 1:150, 2:225, 3:300 kHz (default 3, max 3) */
+#define 	SX125x_ADC_TEMP			0	/* ADC temperature measurement mode (default 0) */
+#define 	SX125x_XOSC_GM_STARTUP	13	/* (default 13) */
+#define 	SX125x_XOSC_DISABLE		2	/* Disable of Xtal Oscillator blocks bit0:regulator, bit1:core(gm), bit2:amplifier */
 
-#define		RSSI_OFFSET_LORA_MULTI	-128.0	/* calibrated value */
-#define		RSSI_OFFSET_LORA_STD	-167.0	/* calibrated for all bandwidth */
-#define		RSSI_OFFSET_FSK			-146.5	/* calibrated value */
-#define		RSSI_SLOPE_FSK			1.2		/* calibrated value */
+/* Board-specific RSSI calibration constants */
+#if (CFG_BRD_NANO868 == 1)
+	#define		RSSI_OFFSET_LORA_MULTI	-128.0	/* calibrated value */
+	#define		RSSI_OFFSET_LORA_STD	-167.0	/* calibrated for all bandwidth */
+	#define		RSSI_OFFSET_FSK			-146.5	/* calibrated value */
+	#define		RSSI_SLOPE_FSK			1.2		/* calibrated value */
+#elif (CFG_BRD_REF1301 == 1)
+	#define		RSSI_OFFSET_LORA_MULTI	-129.0	/* calibrated value */
+	#define		RSSI_OFFSET_LORA_STD	-164.0	/* calibrated for all bandwidth */
+	#define		RSSI_OFFSET_FSK			-146.5	/* todo */
+	#define		RSSI_SLOPE_FSK			1.2		/* todo */
+/* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
+#elif (CFG_BRD_MYBOARD == 1)
+*/
+#elif (CFG_BRD_NONE == 1)
+	#define		RSSI_OFFSET_LORA_MULTI	0.0
+	#define		RSSI_OFFSET_LORA_STD	0.0
+	#define		RSSI_OFFSET_FSK			0.0
+	#define		RSSI_SLOPE_FSK			1.0
+#endif
 
-#define		TX_METADATA_NB		16
-#define		RX_METADATA_NB		16
+/* constant arrays defining hardware capability */
 
-#define		MIN_LORA_PREAMBLE		4
-#define		MIN_FSK_PREAMBLE		3
-#define		PLL_LOCK_MAX_ATTEMPTS	6
+const uint8_t ifmod_config[LGW_IF_CHAIN_NB] = LGW_IFMODEM_CONFIG;
 
-#define		TX_START_DELAY		1000
+const uint32_t rf_rx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_RX_LOWFREQ;
+const uint32_t rf_rx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_RX_UPFREQ;
+const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
+const uint32_t rf_tx_lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_LOWFREQ;
+const uint32_t rf_tx_upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
+const bool rf_tx_enable[LGW_RF_CHAIN_NB] = LGW_RF_TX_ENABLE;
+const bool rf_clkout[LGW_RF_CHAIN_NB] = LGW_RF_CLKOUT;
+
+/* TX power management */
+
+#define	TX_POW_LUT_SIZE	16
+
+typedef struct {
+	uint8_t	pa_gain;	/* 2 bits, control of the external PA (SX1301 I/O) */
+	uint8_t	dac_gain;	/* 2 bits, control of the radio DAC */
+	uint8_t	mix_gain;	/* 4 bits, control of the radio mixer */
+	int8_t	rf_power;	/* measured TX power at the board connector, in dBm */
+} tx_pow_t;
+
+/* Default table (TX power associated to each value is board-dependant)
+	+-------+------+------+------+------+
+	|       |  PA  | DAC  | mix. | ctrl |
+	| index | ctrl | ctrl | ctrl | byte |
+	+-------+--------------------+------+
+	|    0  |   0      3      8  | 0x38 |
+	|    1  |   0      3     10  | 0x3A |
+	|    2  |   0      3     12  | 0x3C |
+	|    3  |   1      3      8  | 0x78 |
+	|    4  |   1      3     10  | 0x7A |
+	|    5  |   1      3     12  | 0x7C |
+	|    6  |   1      3     13  | 0x7D |
+	|    7  |   1      3     15  | 0x7F |
+	|    8  |   2      3      9  | 0xB9 |
+	|    9  |   2      3     10  | 0xBA |
+	|   10  |   2      3     11  | 0xBB |
+	|   11  |   3      3     10  | 0xFA |
+	|   12  |   3      3     11  | 0xFB |
+	|   13  |   3      3     12  | 0xFC |
+	|   14  |   3      3     13  | 0xFD |
+	|   15  |   3      3     15  | 0xFF |
+	+-------+--------------------+------+
+*/
+
+#if (CFG_BRD_NANO868 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1 /* is custom table loading sequence needed ? */
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	8,	2},\
+		{	0,	3,	9,	3},\
+		{	0,	3,	10,	5},\
+		{	0,	3,	12,	7},\
+		{	0,	3,	14,	9},\
+		{	0,	3,	15,	10},\
+		{	1,	3,	8,	12},\
+		{	1,	3,	9,	14},\
+		{	1,	3,	10,	15},\
+		{	1,	3,	11,	17},\
+		{	1,	3,	12,	18},\
+		{	1,	3,	13,	20},\
+		{	2,	3,	8,	21},\
+		{	2,	3,	9,	23},\
+		{	2,	3,	11,	25},\
+		{	2,	3,	13,	27},\
+	}; /* calibrated */
+#elif (CFG_BRD_REF1301 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	8,	-9},\
+		{	0,	3,	10,	-6},\
+		{	0,	3,	12,	-3},\
+		{	1,	3,	8,	0},\
+		{	1,	3,	10,	4},\
+		{	1,	3,	12,	7},\
+		{	1,	3,	13,	8},\
+		{	1,	3,	15,	9},\
+		{	2,	3,	9,	10},\
+		{	2,	3,	10,	12},\
+		{	2,	3,	11,	13},\
+		{	3,	3,	10,	21},\
+		{	3,	3,	12,	23},\
+		{	3,	3,	12,	24},\
+		{	3,	3,	13,	25},\
+		{	3,	3,	15,	26},\
+	}; /* calibrated */
+/* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
+#elif (CFG_BRD_MYBOARD == 1)
+*/
+#elif (CFG_BRD_NONE == 1)
+	#define	CUSTOM_TX_POW_TABLE		0
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	8,	0},\
+		{	0,	3,	10,	1},\
+		{	0,	3,	12,	2},\
+		{	1,	3,	8,	3},\
+		{	1,	3,	10,	4},\
+		{	1,	3,	12,	5},\
+		{	1,	3,	13,	6},\
+		{	1,	3,	15,	7},\
+		{	2,	3,	9,	8},\
+		{	2,	3,	10,	9},\
+		{	2,	3,	11,	10},\
+		{	3,	3,	10,	11},\
+		{	3,	3,	12,	12},\
+		{	3,	3,	12,	13},\
+		{	3,	3,	13,	14},\
+		{	3,	3,	15,	15},\
+	}; // uncalibrated table, lgw_pkt_tx_s.rf_power selects table index */
+#endif
+
+/* Strings for version (and options) identification */
+
+#if (CFG_SPI_NATIVE == 1)
+	#define		CFG_SPI_STR		"native"
+#elif (CFG_SPI_FTDI == 1)
+	#define		CFG_SPI_STR		"ftdi"
+#else
+	#define		CFG_SPI_STR		"spi?"
+#endif
+
+#if (CFG_CHIP_1301 == 1)
+	#define		CFG_CHIP_STR	"sx1301"
+#elif (CFG_CHIP_FPGA == 1)
+	#define		CFG_CHIP_STR	"fpga1301"
+#else
+	#define		CFG_CHIP_STR	"chip?"
+#endif
+
+#if (CFG_RADIO_1257 == 1)
+	#define		CFG_RADIO_STR	"sx1257"
+#elif (CFG_RADIO_1255 == 1)
+	#define		CFG_RADIO_STR	"sx1255"
+#else
+	#define		CFG_RADIO_STR	"radio?"
+#endif
+
+#if (CFG_BAND_FULL == 1)
+	#define		CFG_BAND_STR	"full"
+#elif (CFG_BAND_868 == 1)
+	#define		CFG_BAND_STR	"eu868"
+#elif (CFG_BAND_915 == 1)
+	#define		CFG_BAND_STR	"us915"
+#elif (CFG_BAND_470 == 1)
+	#define		CFG_BAND_STR	"cn470"
+#elif (CFG_BAND_433 == 1)
+	#define		CFG_BAND_STR	"eu433"
+#else
+	#define		CFG_BAND_STR	"band?"
+#endif
+
+#if (CFG_BRD_NANO868 == 1)
+	#define		CFG_BRD_STR		"dev_nano_868"
+#elif (CFG_BRD_REF1301 == 1)
+	#define		CFG_BRD_STR		"ref_1301_57nf"
+/* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
+#elif (CFG_BRD_MYBOARD == 1)
+*/
+#elif (CFG_BRD_NONE == 1)
+	#define		CFG_BRD_STR		"no_brd"
+#else
+	#define		CFG_BRD_STR		"brd?"
+#endif
+
+/* Version string, used to identify the library version/options once compiled */
+const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CFG_SPI_STR " " CFG_CHIP_STR " " CFG_RADIO_STR " " CFG_BAND_STR " " CFG_BRD_STR ";";
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
 #include "arb_fw.var" /* external definition of the variable */
 #include "agc_fw.var" /* external definition of the variable */
-
-/* Version string, used to identify the library version/options once compiled */
-#include "VERSION"
-const char lgw_version_string[] = "Library: " VERSION_LIBRARY "; API: " VERSION_API "; SPI layer: " LGW_PHY "; Chip id: " ACCEPT_CHIP_ID "; SPI reg: " ACCEPT_VERSION_REG "; Radio(s): " INFO_RADIO_CHIP "; Usable band: " INFO_RF_PARAM "; Reference plateform: " INFO_REF_HARDWARE ";";
 
 /*
 The following static variables are the configuration set that the user can
@@ -117,23 +301,23 @@ Parameters validity and coherency is verified by the _setconf functions and
 the _start function assumes 
 */
 
-static bool lgw_is_started = false;
+static bool lgw_is_started;
 
-static bool rf_enable[LGW_RF_CHAIN_NB] = {0, 0};
-static uint32_t rf_rx_freq[LGW_RF_CHAIN_NB] = {0, 0}; /* absolute, in Hz */
+static bool rf_enable[LGW_RF_CHAIN_NB];
+static uint32_t rf_rx_freq[LGW_RF_CHAIN_NB]; /* absolute, in Hz */
 
-static bool if_enable[LGW_IF_CHAIN_NB] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-static bool if_rf_chain[LGW_IF_CHAIN_NB] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* for each IF, 0 -> radio A, 1 -> radio B */
-static int32_t if_freq[LGW_IF_CHAIN_NB] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0}; /* relative to radio frequency, +/- in Hz */
+static bool if_enable[LGW_IF_CHAIN_NB];
+static bool if_rf_chain[LGW_IF_CHAIN_NB]; /* for each IF, 0 -> radio A, 1 -> radio B */
+static int32_t if_freq[LGW_IF_CHAIN_NB]; /* relative to radio frequency, +/- in Hz */
 
-static uint8_t lora_multi_sfmask[LGW_MULTI_NB] = {0, 0, 0, 0}; /* enables SF for Lora 'multi' modems */
+static uint8_t lora_multi_sfmask[LGW_MULTI_NB]; /* enables SF for LoRa 'multi' modems */
 
-static uint8_t lora_rx_bw = 0; /* bandwidth setting for Lora standalone modem */
-static uint8_t lora_rx_sf = 0; /* spreading factor setting for Lora standalone modem */
-static bool lora_rx_ppm_offset = 0;
+static uint8_t lora_rx_bw; /* bandwidth setting for LoRa standalone modem */
+static uint8_t lora_rx_sf; /* spreading factor setting for LoRa standalone modem */
+static bool lora_rx_ppm_offset;
 
-static uint8_t fsk_rx_bw = 0; /* bandwidth setting of FSK modem */
-static uint32_t fsk_rx_dr = 0; /* FSK modem datarate in bauds */
+static uint8_t fsk_rx_bw; /* bandwidth setting of FSK modem */
+static uint32_t fsk_rx_dr; /* FSK modem datarate in bauds */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
@@ -144,7 +328,7 @@ void sx125x_write(uint8_t channel, uint8_t addr, uint8_t data);
 
 uint8_t sx125x_read(uint8_t channel, uint8_t addr);
 
-int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz);
+int setup_sx125x(uint8_t rf_chain, uint32_t freq_hz);
 
 void lgw_constant_adjust(void);
 
@@ -287,7 +471,7 @@ uint8_t sx125x_read(uint8_t channel, uint8_t addr) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
+int setup_sx125x(uint8_t rf_chain, uint32_t freq_hz) {
 	uint32_t part_int;
 	uint32_t part_frac;
 	int cpt_attempts = 0;
@@ -297,37 +481,61 @@ int setup_sx1257(uint8_t rf_chain, uint32_t freq_hz) {
 		return -1;
 	}
 	
-	sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL + 2); /* Enable 'clock out' for both radios */
-	sx125x_write(rf_chain, 0x26, 0X2D); /* Disable gm of oscillator block */
+	/* Get version to identify SX1255/57 silicon revision */
+	DEBUG_PRINTF("Note: SX125x #%d version register returned 0x%02x\n", rf_chain, sx125x_read(rf_chain, 0x07));
 	
-	/* Tx gain and trim */
-	sx125x_write(rf_chain, 0x08, SX125x_TX_MIX_GAIN + SX125x_TX_DAC_GAIN*16);
-	sx125x_write(rf_chain, 0x0A, SX125x_TX_ANA_BW + SX125x_TX_PLL_BW*32);
-	sx125x_write(rf_chain, 0x0B, SX125x_TX_DAC_BW);
+	/* General radio setup */
+	if (rf_clkout[rf_chain] == true) {
+		sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL + 2);
+		DEBUG_PRINTF("Note: SX125x #%d clock output enabled\n", rf_chain);
+	} else {
+		sx125x_write(rf_chain, 0x10, SX125x_TX_DAC_CLK_SEL);
+		DEBUG_PRINTF("Note: SX125x #%d clock output disabled\n", rf_chain);
+	}
+	#if (CFG_RADIO_1257 == 1)
+	sx125x_write(rf_chain, 0x26, SX125x_XOSC_GM_STARTUP + SX125x_XOSC_DISABLE*16);
+	#elif (CFG_RADIO_1255 == 1)
+	sx125x_write(rf_chain, 0x28, SX125x_XOSC_GM_STARTUP + SX125x_XOSC_DISABLE*16);
+	#endif
 	
-	/* Rx gain and trim */
-	sx125x_write(rf_chain, 0x0C, 0 + SX125x_RX_BB_GAIN*2 + SX125x_RX_LNA_GAIN*32);
-	sx125x_write(rf_chain, 0x0D, SX125x_RXBB_BW + SX125x_RX_ADC_TRIM*4 + SX125x_RX_ADC_BW*32);
-	
-	/* set RX PLL frequency */
-	part_int = freq_hz / (SX125x_32MHz_FRAC << 8); /* integer part, gives the MSB */
-	part_frac = ((freq_hz % (SX125x_32MHz_FRAC << 8)) << 8) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
-	sx125x_write(rf_chain, 0x01,0xFF & part_int); /* Most Significant Byte */
-	sx125x_write(rf_chain, 0x02,0xFF & (part_frac >> 8)); /* middle byte */
-	sx125x_write(rf_chain, 0x03,0xFF & part_frac); /* Least Significant Byte */
-	
-	/* start and PLL lock */
-	do {
-		if (cpt_attempts >= PLL_LOCK_MAX_ATTEMPTS) {
-			DEBUG_MSG("ERROR: FAIL TO LOCK PLL\n");
-			return -1;
-		}
-		sx125x_write(rf_chain, 0x00, 1); /* enable Xtal oscillator */
-		sx125x_write(rf_chain, 0x00, 3); /* Enable RX (PLL+FE) */
-		++cpt_attempts;
-		DEBUG_PRINTF("Note: SX125x #%d PLL start (attempt %d)\n", rf_chain, cpt_attempts);
-		wait_ms(1);
-	} while((sx125x_read(rf_chain, 0x11) & 0x02) == 0);
+	if (rf_enable[rf_chain] == true) {
+		/* Tx gain and trim */
+		sx125x_write(rf_chain, 0x08, SX125x_TX_MIX_GAIN + SX125x_TX_DAC_GAIN*16);
+		sx125x_write(rf_chain, 0x0A, SX125x_TX_ANA_BW + SX125x_TX_PLL_BW*32);
+		sx125x_write(rf_chain, 0x0B, SX125x_TX_DAC_BW);
+		
+		/* Rx gain and trim */
+		sx125x_write(rf_chain, 0x0C, SX125x_LNA_ZIN + SX125x_RX_BB_GAIN*2 + SX125x_RX_LNA_GAIN*32);
+		sx125x_write(rf_chain, 0x0D, SX125x_RX_BB_BW + SX125x_RX_ADC_TRIM*4 + SX125x_RX_ADC_BW*32);
+		sx125x_write(rf_chain, 0x0E, SX125x_ADC_TEMP + SX125x_RX_PLL_BW*2);
+		
+		/* set RX PLL frequency */
+		#if (CFG_RADIO_1257 == 1)
+		part_int = freq_hz / (SX125x_32MHz_FRAC << 8); /* integer part, gives the MSB */
+		part_frac = ((freq_hz % (SX125x_32MHz_FRAC << 8)) << 8) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
+		#elif (CFG_RADIO_1255 == 1)
+		part_int = freq_hz / (SX125x_32MHz_FRAC << 7); /* integer part, gives the MSB */
+		part_frac = ((freq_hz % (SX125x_32MHz_FRAC << 7)) << 9) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
+		#endif
+		sx125x_write(rf_chain, 0x01,0xFF & part_int); /* Most Significant Byte */
+		sx125x_write(rf_chain, 0x02,0xFF & (part_frac >> 8)); /* middle byte */
+		sx125x_write(rf_chain, 0x03,0xFF & part_frac); /* Least Significant Byte */
+		
+		/* start and PLL lock */
+		do {
+			if (cpt_attempts >= PLL_LOCK_MAX_ATTEMPTS) {
+				DEBUG_MSG("ERROR: FAIL TO LOCK PLL\n");
+				return -1;
+			}
+			sx125x_write(rf_chain, 0x00, 1); /* enable Xtal oscillator */
+			sx125x_write(rf_chain, 0x00, 3); /* Enable RX (PLL+FE) */
+			++cpt_attempts;
+			DEBUG_PRINTF("Note: SX125x #%d PLL start (attempt %d)\n", rf_chain, cpt_attempts);
+			wait_ms(1);
+		} while((sx125x_read(rf_chain, 0x11) & 0x02) == 0);
+	} else {
+		DEBUG_PRINTF("Note: SX125x #%d kept in standby mode\n", rf_chain);
+	}
 	
 	return 0;
 }
@@ -343,14 +551,14 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_RX_EDGE_SELECT,0); /* default 0 */
 	// lgw_reg_w(LGW_MBWSSF_MODEM_INVERT_IQ,0); /* default 0 */
 	// lgw_reg_w(LGW_DC_NOTCH_EN,1); /* default 1 */
-	lgw_reg_w(LGW_RSSI_BB_FILTER_ALPHA,9); /* default 7 */
-	lgw_reg_w(LGW_RSSI_DEC_FILTER_ALPHA,9); /* default 5 */
+	lgw_reg_w(LGW_RSSI_BB_FILTER_ALPHA,6); /* default 7 */
+	lgw_reg_w(LGW_RSSI_DEC_FILTER_ALPHA,7); /* default 5 */
 	lgw_reg_w(LGW_RSSI_CHANN_FILTER_ALPHA,7); /* default 8 */
-	// lgw_reg_w(LGW_RSSI_BB_DEFAULT_VALUE,32); /* default 32 */
-	lgw_reg_w(LGW_RSSI_CHANN_DEFAULT_VALUE,90); /* default 100 */
-	lgw_reg_w(LGW_RSSI_DEC_DEFAULT_VALUE,90); /* default 100 */
-	// lgw_reg_w(LGW_DEC_GAIN_OFFSET, 8); /* default 8 */
-	// lgw_reg_w(LGW_CHAN_GAIN_OFFSET, 7); /* default 7 */
+	lgw_reg_w(LGW_RSSI_BB_DEFAULT_VALUE,23); /* default 32 */
+	lgw_reg_w(LGW_RSSI_CHANN_DEFAULT_VALUE,85); /* default 100 */
+	lgw_reg_w(LGW_RSSI_DEC_DEFAULT_VALUE,66); /* default 100 */
+	lgw_reg_w(LGW_DEC_GAIN_OFFSET,7); /* default 8 */
+	lgw_reg_w(LGW_CHAN_GAIN_OFFSET,6); /* default 7 */
 	
 	/* Correlator setup */
 	// lgw_reg_w(LGW_CORR_DETECT_EN,126); /* default 126 */
@@ -371,9 +579,8 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_CORR_SIG_NOISE_RATIO_SF11,4); /* default 4 */
 	// lgw_reg_w(LGW_CORR_SIG_NOISE_RATIO_SF12,4); /* default 4 */
 	
-	/* Lora 'multi' demodulators setup */
-	lgw_reg_w(LGW_PREAMBLE_SYMB1_NB,4); /* default 10 */
-	// lgw_reg_w(LGW_FREQ_TO_TIME_DRIFT,9); /* default 9 */
+	/* LoRa 'multi' demodulators setup */
+	// lgw_reg_w(LGW_PREAMBLE_SYMB1_NB,10); /* default 10 */
 	// lgw_reg_w(LGW_FREQ_TO_TIME_INVERT,29); /* default 29 */
 	// lgw_reg_w(LGW_FRAME_SYNCH_GAIN,1); /* default 1 */
 	// lgw_reg_w(LGW_SYNCH_DETECT_TH,1); /* default 1 */
@@ -389,10 +596,8 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_ADJUST_MODEM_START_OFFSET_SF12_RDX4,4092); /* default 4092 */
 	// lgw_reg_w(LGW_MAX_PAYLOAD_LEN,255); /* default 255 */
 	
-	/* Lora standalone 'MBWSSF' demodulator setup */
-	// lgw_reg_w(LGW_MBWSSF_MODEM_ENABLE,1); /* default 0 */
+	/* LoRa standalone 'MBWSSF' demodulator setup */
 	// lgw_reg_w(LGW_MBWSSF_PREAMBLE_SYMB1_NB,10); /* default 10 */
-	// lgw_reg_w(LGW_MBWSSF_FREQ_TO_TIME_DRIFT,36); /* default 36 */
 	// lgw_reg_w(LGW_MBWSSF_FREQ_TO_TIME_INVERT,29); /* default 29 */
 	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_GAIN,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_SYNCH_DETECT_TH,1); /* default 1 */
@@ -429,7 +634,7 @@ void lgw_constant_adjust(void) {
 	/* TX general parameters */
 	lgw_reg_w(LGW_TX_START_DELAY, TX_START_DELAY); /* default 0 */
 	
-	/* TX Lora */
+	/* TX LoRa */
 	// lgw_reg_w(LGW_TX_MODE,0); /* default 0 */
 	lgw_reg_w(LGW_TX_SWAP_IQ,1); /* "normal" polarity; default 0 */
 	
@@ -448,9 +653,9 @@ void lgw_constant_adjust(void) {
 
 int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 	
-	/* check if the gateway is running */
+	/* check if the concentrator is running */
 	if (lgw_is_started == true) {
-		DEBUG_MSG("ERROR: GATEWAY IS RUNNING, STOP IT BEFORE TOUCHING CONFIGURATION\n");
+		DEBUG_MSG("ERROR: CONCENTRATOR IS RUNNING, STOP IT BEFORE TOUCHING CONFIGURATION\n");
 		return LGW_HAL_ERROR;
 	}
 	
@@ -473,15 +678,17 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 	rf_enable[rf_chain] = conf.enable;
 	rf_rx_freq[rf_chain] = conf.freq_hz;
 	
+	DEBUG_PRINTF("Note: rf_chain %d configuration; en:%d freq:%d\n", rf_chain, rf_enable[rf_chain], rf_rx_freq[rf_chain]);
+	
 	return LGW_HAL_SUCCESS;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
-	/* check if the gateway is running */
+	/* check if the concentrator is running */
 	if (lgw_is_started == true) {
-		DEBUG_MSG("ERROR: GATEWAY IS RUNNING, STOP IT BEFORE TOUCHING CONFIGURATION\n");
+		DEBUG_MSG("ERROR: CONCENTRATOR IS RUNNING, STOP IT BEFORE TOUCHING CONFIGURATION\n");
 		return LGW_HAL_ERROR;
 	}
 	
@@ -543,12 +750,12 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 			lora_rx_bw = conf.bandwidth;
 			lora_rx_sf = (uint8_t)(DR_LORA_MULTI & conf.datarate); /* filter SF out of the 7-12 range */
 			if (SET_PPM_ON(conf.bandwidth, conf.datarate)) {
-				lora_rx_ppm_offset = 1;
+				lora_rx_ppm_offset = true;
 			} else {
-				lora_rx_ppm_offset = 0;
+				lora_rx_ppm_offset = false;
 			}
 			
-			DEBUG_PRINTF("Note: Lora 'std' if_chain %d configured; en:%d freq:%d bw:%d dr:%d\n", if_chain, if_enable[if_chain], if_freq[if_chain], lora_rx_bw, lora_rx_sf);
+			DEBUG_PRINTF("Note: LoRa 'std' if_chain %d configuration; en:%d freq:%d bw:%d dr:%d\n", if_chain, if_enable[if_chain], if_freq[if_chain], lora_rx_bw, lora_rx_sf);
 			break;
 		
 		case IF_LORA_MULTI:
@@ -574,7 +781,7 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 			if_freq[if_chain] = conf.freq_hz;
 			lora_multi_sfmask[if_chain] = (uint8_t)(DR_LORA_MULTI & conf.datarate); /* filter SF out of the 7-12 range */
 			
-			DEBUG_PRINTF("Note: Lora 'multi' if_chain %d configured; en:%d freq:%d SF_mask:0x%02x\n", if_chain, if_enable[if_chain], if_freq[if_chain], lora_multi_sfmask[if_chain]);
+			DEBUG_PRINTF("Note: LoRa 'multi' if_chain %d configuration; en:%d freq:%d SF_mask:0x%02x\n", if_chain, if_enable[if_chain], if_freq[if_chain], lora_multi_sfmask[if_chain]);
 			break;
 		
 		case IF_FSK_STD:
@@ -600,7 +807,7 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 			if_freq[if_chain] = conf.freq_hz;
 			fsk_rx_bw = conf.bandwidth;
 			fsk_rx_dr = conf.datarate;
-			DEBUG_PRINTF("Note: FSK if_chain %d configured; en:%d freq:%d bw:%d dr:%d (%d real dr)\n", if_chain, if_enable[if_chain], if_freq[if_chain], fsk_rx_bw, fsk_rx_dr, LGW_XTAL_FREQU/(LGW_XTAL_FREQU/fsk_rx_dr));
+			DEBUG_PRINTF("Note: FSK if_chain %d configuration; en:%d freq:%d bw:%d dr:%d (%d real dr)\n", if_chain, if_enable[if_chain], if_freq[if_chain], fsk_rx_bw, fsk_rx_dr, LGW_XTAL_FREQU/(LGW_XTAL_FREQU/fsk_rx_dr));
 			break;
 		
 		default:
@@ -614,11 +821,15 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_start(void) {
-	int i, j;
+	int i;
 	int reg_stat;
+	unsigned x;
+	uint8_t radio_select;
+	int32_t read_val;
+	uint8_t load_val;
 	
 	if (lgw_is_started == true) {
-		DEBUG_MSG("Note: Lora Gateway already started, restarting it now\n");
+		DEBUG_MSG("Note: LoRa concentrator already started, restarting it now\n");
 	}
 	
 	reg_stat = lgw_connect();
@@ -634,25 +845,16 @@ int lgw_start(void) {
 	lgw_reg_w(LGW_GLOBAL_EN, 1);
 	
 	/* switch on and reset the radios (also starts the 32 MHz XTAL) */
-	lgw_reg_w(LGW_RADIO_A_EN,1); /* radio A *must* be started to get 32 MHz clk */
-	lgw_reg_w(LGW_RADIO_B_EN,1); /* radio B *must* be started because they share the same XTAL I/O is clamped to ground when off */
+	lgw_reg_w(LGW_RADIO_A_EN,1);
+	lgw_reg_w(LGW_RADIO_B_EN,1);
 	wait_ms(500);
 	lgw_reg_w(LGW_RADIO_RST,1);
 	wait_ms(5);
 	lgw_reg_w(LGW_RADIO_RST,0);
 	
 	/* setup the radios */
-	if (rf_enable[0] == 1) {
-		setup_sx1257(0, rf_rx_freq[0]);
-	}
-	if (rf_enable[1] == 1) {
-		setup_sx1257(1, rf_rx_freq[1]);
-	}
-	
-	/* gives the AGC MCU control over radio, RF front-end and filter gain */
-	lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL,0);
-	lgw_reg_w(LGW_FORCE_HOST_FE_CTRL,0);
-	lgw_reg_w(LGW_FORCE_DEC_FILTER_GAIN,0);
+	setup_sx125x(0, rf_rx_freq[0]);
+	setup_sx125x(1, rf_rx_freq[1]);
 	
 	/* TODO load the calibration firmware and wait for calibration to end */
 	
@@ -667,28 +869,58 @@ int lgw_start(void) {
 	/* load adjusted parameters */
 	lgw_constant_adjust();
 	
-	/* configure Lora 'multi' demodulators aka. Lora 'sensor' channels (IF0-3) */
-	j = 0;
-	for(i=0; i<=7; ++i) {
-		j += (if_rf_chain[i] == 1 ? 1 << i : 0); /* transform bool array into binary word */
+	/* Freq-to-time-drift calculation */
+	x = (2 * 8192000000) / (uint64_t)(rf_rx_lowfreq[0] + rf_rx_upfreq[0]); /* 64b calculation */
+	if (x > 63) {
+		x = 63;
 	}
-	lgw_reg_w(LGW_RADIO_SELECT, j); /* IF mapping to radio A/B (per bit, 0=A, 1=B) */
+	lgw_reg_w(LGW_FREQ_TO_TIME_DRIFT, x); /* default 9 */
+	x = (2 * 32768000000) / (uint64_t)(rf_rx_lowfreq[0] + rf_rx_upfreq[0]); /* 64b calculation */
+	if (x > 63) {
+		x = 63;
+	}
+	lgw_reg_w(LGW_MBWSSF_FREQ_TO_TIME_DRIFT, x); /* default 36 */
+	
+	/* configure LoRa 'multi' demodulators aka. LoRa 'sensor' channels (IF0-3) */
+	
+	radio_select = 0; /* IF mapping to radio A/B (per bit, 0=A, 1=B) */
+	for(i=0; i<LGW_MULTI_NB; ++i) {
+		radio_select += (if_rf_chain[i] == 1 ? 1 << i : 0); /* transform bool array into binary word */
+	}
+	/*
+	lgw_reg_w(LGW_RADIO_SELECT, radio_select);
+	
+	LGW_RADIO_SELECT is used for communication with the firmware, "radio_select"
+	will be loaded in LGW_RADIO_SELECT at the end of start procedure.
+	*/
 	
 	lgw_reg_w(LGW_IF_FREQ_0, IF_HZ_TO_REG(if_freq[0])); /* default -384 */
 	lgw_reg_w(LGW_IF_FREQ_1, IF_HZ_TO_REG(if_freq[1])); /* default -128 */
 	lgw_reg_w(LGW_IF_FREQ_2, IF_HZ_TO_REG(if_freq[2])); /* default 128 */
 	lgw_reg_w(LGW_IF_FREQ_3, IF_HZ_TO_REG(if_freq[3])); /* default 384 */
+	#if (CFG_CHIP_1301 == 1)
+	lgw_reg_w(LGW_IF_FREQ_4, IF_HZ_TO_REG(if_freq[4])); /* default -384 */
+	lgw_reg_w(LGW_IF_FREQ_5, IF_HZ_TO_REG(if_freq[5])); /* default -128 */
+	lgw_reg_w(LGW_IF_FREQ_6, IF_HZ_TO_REG(if_freq[6])); /* default 128 */
+	lgw_reg_w(LGW_IF_FREQ_7, IF_HZ_TO_REG(if_freq[7])); /* default 384 */
+	#endif
 	
 	lgw_reg_w(LGW_CORR0_DETECT_EN, (if_enable[0] == true) ? lora_multi_sfmask[0] : 0); /* default 0 */
 	lgw_reg_w(LGW_CORR1_DETECT_EN, (if_enable[1] == true) ? lora_multi_sfmask[1] : 0); /* default 0 */
 	lgw_reg_w(LGW_CORR2_DETECT_EN, (if_enable[2] == true) ? lora_multi_sfmask[2] : 0); /* default 0 */
 	lgw_reg_w(LGW_CORR3_DETECT_EN, (if_enable[3] == true) ? lora_multi_sfmask[3] : 0); /* default 0 */
+	#if (CFG_CHIP_1301 == 1)
+	lgw_reg_w(LGW_CORR4_DETECT_EN, (if_enable[4] == true) ? lora_multi_sfmask[4] : 0); /* default 0 */
+	lgw_reg_w(LGW_CORR5_DETECT_EN, (if_enable[5] == true) ? lora_multi_sfmask[5] : 0); /* default 0 */
+	lgw_reg_w(LGW_CORR6_DETECT_EN, (if_enable[6] == true) ? lora_multi_sfmask[6] : 0); /* default 0 */
+	lgw_reg_w(LGW_CORR7_DETECT_EN, (if_enable[7] == true) ? lora_multi_sfmask[7] : 0); /* default 0 */
+	#endif
 	
 	lgw_reg_w(LGW_PPM_OFFSET, 0x60); /* as the threshold is 16ms, use 0x60 to enable ppm_offset for SF12 and SF11 @125kHz*/
 	
 	lgw_reg_w(LGW_CONCENTRATOR_MODEM_ENABLE,1); /* default 0 */
 	
-	/* configure Lora 'stand-alone' modem (IF8) */
+	/* configure LoRa 'stand-alone' modem (IF8) */
 	lgw_reg_w(LGW_IF_FREQ_8, IF_HZ_TO_REG(if_freq[8])); /* MBWSSF modem (default 0) */
 	if (if_enable[8] == true) {
 		lgw_reg_w(LGW_MBWSSF_RADIO_SELECT, if_rf_chain[8]);
@@ -732,9 +964,65 @@ int lgw_start(void) {
 	load_firmware(MCU_ARB, arb_firmware, MCU_ARB_FW_BYTE);
 	load_firmware(MCU_AGC, agc_firmware, MCU_AGC_FW_BYTE);
 	
+	/* gives the AGC MCU control over radio, RF front-end and filter gain */
+	lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL,0);
+	lgw_reg_w(LGW_FORCE_HOST_FE_CTRL,0);
+	lgw_reg_w(LGW_FORCE_DEC_FILTER_GAIN,0);
+	
 	/* Get MCUs out of reset */
+	lgw_reg_w(LGW_RADIO_SELECT, 0); /* MUST not be = to 1 or 2 at firmware init */
 	lgw_reg_w(LGW_MCU_RST_0, 0);
 	lgw_reg_w(LGW_MCU_RST_1, 0);
+	
+	DEBUG_MSG("Info: Initialising AGC firmware...\n");
+	wait_ms(1);
+	
+	lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
+	if (read_val != 0x20) {
+		DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+		return LGW_HAL_ERROR;
+	}
+	
+	/* Update Tx gain LUT and start AGC */
+	
+	#if (CUSTOM_TX_POW_TABLE == 1)
+		DEBUG_MSG("Info: loading custom TX gain table\n");
+		for(i=0; i<TX_POW_LUT_SIZE; ++i) {
+			load_val = tx_pow_table[i].mix_gain + (16 * tx_pow_table[i].dac_gain) + (64 * tx_pow_table[i].pa_gain);
+			lgw_reg_w(LGW_RADIO_SELECT,1); /* 1 = start a transaction */
+			wait_ms(1);
+			lgw_reg_w(LGW_RADIO_SELECT, load_val);
+			wait_ms(1);
+			lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
+			if (read_val != (0x30 + i)) {
+				DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+				return LGW_HAL_ERROR;
+			}
+		}
+	#else
+		load_val = 2; /* 2 = abort LUT update */
+		lgw_reg_w(LGW_RADIO_SELECT,1); /* 1 = start a transaction */
+		wait_ms(1);
+		lgw_reg_w(LGW_RADIO_SELECT, load_val); 
+		wait_ms(1);
+		DEBUG_MSG("Info: TX gain LUT update skipped, using default LUT\n");
+		lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
+		if (read_val != 0x30) {
+			DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+			return LGW_HAL_ERROR;
+		}
+	#endif
+	
+	lgw_reg_w(LGW_RADIO_SELECT,1);
+	wait_ms(1);
+	lgw_reg_w(LGW_RADIO_SELECT, radio_select); /* Load intended value of RADIO_SELECT */
+	wait_ms(1);
+	DEBUG_MSG("Info: putting back original RADIO_SELECT value\n");
+	lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
+	if (read_val != 0x40) {
+		DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
+		return LGW_HAL_ERROR;
+	}
 	
 	/* enable GPS event capture */
 	lgw_reg_w(LGW_GPS_EN,1);
@@ -771,9 +1059,9 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 	uint32_t timestamp_correction; /* correction to account for processing delay */
 	uint32_t sf, cr, bw_pow, crc_en, ppm; /* used to calculate timestamp correction */
 	
-	/* check if the gateway is running */
+	/* check if the concentrator is running */
 	if (lgw_is_started == false) {
-		DEBUG_MSG("ERROR: GATEWAY IS NOT RUNNING, START IT BEFORE RECEIVING\n");
+		DEBUG_MSG("ERROR: CONCENTRATOR IS NOT RUNNING, START IT BEFORE RECEIVING\n");
 		return LGW_HAL_ERROR;
 	}
 	
@@ -816,7 +1104,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		DEBUG_PRINTF("[%d %d]\n", p->if_chain, ifmod);
 		
 		if ((ifmod == IF_LORA_MULTI) || (ifmod == IF_LORA_STD)) {
-			DEBUG_MSG("Note: Lora packet\n");
+			DEBUG_MSG("Note: LoRa packet\n");
 			switch(stat_fifo & 0x07) {
 				case 5:
 					p->status = STAT_CRC_OK;
@@ -872,7 +1160,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			}
 			
 			/* timestamp correction code, base delay */
-			if (ifmod == IF_LORA_STD) { /* if packet was received on the stand-alone lora modem */
+			if (ifmod == IF_LORA_STD) { /* if packet was received on the stand-alone LoRa modem */
 				switch (lora_rx_bw) {
 					case BW_125KHZ:
 						delay_x = 64;
@@ -966,11 +1254,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	uint16_t fsk_dr_div; /* divider to configure for target datarate */
 	int transfer_size = 0; /* data to transfer from host to TX databuffer */
 	int payload_offset = 0; /* start of the payload content in the databuffer */
-	uint8_t power_nibble = 0; /* 4-bit value to set the firmware TX power */
+	uint8_t pow_index = 0; /* 4-bit value to set the firmware TX power */
 	
-	/* check if the gateway is running */
+	/* check if the concentrator is running */
 	if (lgw_is_started == false) {
-		DEBUG_MSG("ERROR: GATEWAY IS NOT RUNNING, START IT BEFORE SENDING\n");
+		DEBUG_MSG("ERROR: CONCENTRATOR IS NOT RUNNING, START IT BEFORE SENDING\n");
 		return LGW_HAL_ERROR;
 	}
 	
@@ -981,6 +1269,10 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	}
 	
 	/* check input variables */
+	if (rf_tx_enable[pkt_data.rf_chain] == false) {
+		DEBUG_MSG("ERROR: SELECTED RF_CHAIN IS DISABLED FOR TX ON SELECTED BOARD\n");
+		return LGW_HAL_ERROR;
+	}
 	if (rf_enable[pkt_data.rf_chain] == false) {
 		DEBUG_MSG("ERROR: SELECTED RF_CHAIN IS DISABLED\n");
 		return LGW_HAL_ERROR;
@@ -1032,20 +1324,25 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	}
 	
 	/* interpretation of TX power */
-	if (pkt_data.rf_power < 24) {
-		power_nibble = 0x0; /* ~15.5 dBm, so 14 after cavity filter + cables */
-	} else {
-		power_nibble = 0xF; /* maximum power ~25.5 dBm, 24 after filter */
+	for (pow_index = TX_POW_LUT_SIZE-1; pow_index > 0; pow_index--) {
+		if (tx_pow_table[pow_index].rf_power <= pkt_data.rf_power) {
+			break;
+		}
 	}
-	// TODO: implement LUT in the firmware and matched value in the HAL
 	
 	/* fixed metadata, useful payload and misc metadata compositing */
 	transfer_size = TX_METADATA_NB + pkt_data.size; /*  */
 	payload_offset = TX_METADATA_NB; /* start the payload just after the metadata */
 	
 	/* metadata 0 to 2, TX PLL frequency */
+	#if (CFG_RADIO_1257 == 1)
 	part_int = pkt_data.freq_hz / (SX125x_32MHz_FRAC << 8); /* integer part, gives the MSB */
 	part_frac = ((pkt_data.freq_hz % (SX125x_32MHz_FRAC << 8)) << 8) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
+	#elif (CFG_RADIO_1255 == 1)
+	part_int = pkt_data.freq_hz / (SX125x_32MHz_FRAC << 7); /* integer part, gives the MSB */
+	part_frac = ((pkt_data.freq_hz % (SX125x_32MHz_FRAC << 7)) << 9) / SX125x_32MHz_FRAC; /* fractional part, gives middle part and LSB */
+	#endif
+	
 	buff[0] = 0xFF & part_int; /* Most Significant Byte */
 	buff[1] = 0xFF & (part_frac >> 8); /* middle byte */
 	buff[2] = 0xFF & part_frac; /* Least Significant Byte */
@@ -1059,11 +1356,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	/* parameters depending on modulation  */
 	if (pkt_data.modulation == MOD_LORA) {
 		/* metadata 7, modulation type, radio chain selection and TX power */
-		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | (0x0F & power_nibble); /* bit 4 is 0 -> Lora modulation */
+		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | (0x0F & pow_index); /* bit 4 is 0 -> LoRa modulation */
 		
 		buff[8] = 0; /* metadata 8, not used */
 		
-		/* metadata 9, CRC, Lora CR & SF */
+		/* metadata 9, CRC, LoRa CR & SF */
 		switch (pkt_data.datarate) {
 			case DR_LORA_SF7: buff[9] = 7; break;
 			case DR_LORA_SF8: buff[9] = 8; break;
@@ -1082,6 +1379,8 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		}
 		if (pkt_data.no_crc == false) {
 			buff[9] |= 0x80; /* set 'CRC enable' bit */
+		} else {
+			DEBUG_MSG("Info: packet will be sent without CRC\n");
 		}
 		
 		/* metadata 10, payload size */
@@ -1104,10 +1403,12 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 			buff[11] |= 0x10; /* set 'TX polarity' bit at 1 */
 		}
 		
-		/* metadata 12 & 13, Lora preamble size */
-		if (pkt_data.preamble < MIN_LORA_PREAMBLE) { /* enforce minimum preamble size */
+		/* metadata 12 & 13, LoRa preamble size */
+		if (pkt_data.preamble == 0) { /* if not explicit, use recommended LoRa preamble size */
+			pkt_data.preamble = STD_LORA_PREAMBLE;
+		} else if (pkt_data.preamble < MIN_LORA_PREAMBLE) { /* enforce minimum preamble size */
 			pkt_data.preamble = MIN_LORA_PREAMBLE;
-			DEBUG_MSG("Note: preamble length adjusted to respect minimum Lora preamble size\n");
+			DEBUG_MSG("Note: preamble length adjusted to respect minimum LoRa preamble size\n");
 		}
 		buff[12] = 0xFF & (pkt_data.preamble >> 8);
 		buff[13] = 0xFF & pkt_data.preamble;
@@ -1118,7 +1419,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		
 	} else if (pkt_data.modulation == MOD_FSK) {
 		/* metadata 7, modulation type, radio chain selection and TX power */
-		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | 0x10 | (0x0F & power_nibble); /* bit 4 is 1 -> FSK modulation */
+		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | 0x10 | (0x0F & pow_index); /* bit 4 is 1 -> FSK modulation */
 		
 		buff[8] = 0; /* metadata 8, not used */
 		

@@ -4,7 +4,7 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
 	Library of functions to manage a GNSS module (typically GPS) for accurate 
@@ -497,7 +497,7 @@ int lgw_gps_sync(struct tref *ref, uint32_t count_us, struct timespec utc) {
 		ref->systime = time(NULL);
 		ref->count_us = count_us;
 		ref->utc = utc;
-		ref->xtal_err = (0.9 * ref->xtal_err) + (0.1 *  slope); /* 10% smoothing factor */
+		ref->xtal_err = slope;
 		aber_min2 = aber_min1;
 		aber_min1 = aber_n0;
 		return LGW_GPS_SUCCESS;

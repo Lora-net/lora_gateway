@@ -1,0 +1,46 @@
+{
+	"SX1301_conf": {
+		"radio_0": {
+			"enable": true,
+			"freq": 927000000
+		},
+		"chan_multiSF_0": {
+			/* LoRa MAC channel, 125kHz, all SF, 926.7 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": -300000
+		},
+		"chan_multiSF_1": {
+			/* LoRa MAC channel, 125kHz, all SF, 926.9 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": -100000
+		},
+		"chan_multiSF_2": {
+			/* LoRa MAC channel, 125kHz, all SF, 927.1 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": 100000
+		},
+		"chan_Lora_std": {
+			/* LoRa MAC channel, 250kHz, SF7, 927.3 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": 300000,
+			"bandwidth": 250000,
+			"spread_factor": 7
+		},
+		
+		"chan_FSK": {
+			/* FSK 100kbps channel, 927.3 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": 300000,
+			"bandwidth": 250000,
+			"datarate": 100000
+		}
+	},
+	"gateway_conf": {
+		"gateway_ID": "AA555A0000000000"
+	}
+}

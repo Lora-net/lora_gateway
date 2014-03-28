@@ -4,10 +4,10 @@
  \____ \| ___ |    (_   _) ___ |/ ___)  _ \
  _____) ) ____| | | || |_| ____( (___| | | |
 (______/|_____)_|_|_| \__)_____)\____)_| |_|
-    ©2013 Semtech-Cycleo
+  (C)2013 Semtech-Cycleo
 
 Description:
-	Lora gateway auxiliary functions
+	LoRa concentrator HAL auxiliary functions
 
 License: Revised BSD License, see LICENSE.TXT file include in the project
 Maintainer: Sylvain Miermont
@@ -16,6 +16,13 @@ Maintainer: Sylvain Miermont
 
 /* -------------------------------------------------------------------------- */
 /* --- DEPENDANCIES --------------------------------------------------------- */
+
+/* fix an issue between POSIX and C99 */
+#if __STDC_VERSION__ >= 199901L
+	#define _XOPEN_SOURCE 600
+#else
+	#define _XOPEN_SOURCE 500
+#endif
 
 #include <stdio.h>		/* printf fprintf */
 #include <time.h>		/* clock_nanosleep */
