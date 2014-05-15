@@ -58,6 +58,9 @@ Maintainer: Sylvain Miermont
 #define		TX_METADATA_NB		16
 #define		RX_METADATA_NB		16
 
+#define     AGC_CMD_WAIT        16
+#define     AGC_CMD_ABORT       17
+
 #define		MIN_LORA_PREAMBLE		4
 #define		STD_LORA_PREAMBLE		6
 #define		MIN_FSK_PREAMBLE		3
@@ -97,25 +100,23 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define 	SX125x_XOSC_GM_STARTUP	13	/* (default 13) */
 #define 	SX125x_XOSC_DISABLE		2	/* Disable of Xtal Oscillator blocks bit0:regulator, bit1:core(gm), bit2:amplifier */
 
+#define     RSSI_MULTI_BIAS         -34.5   /* difference between "multi" modem RSSI offset and "stand-alone" modem RSSI offset */
+#define     RSSI_FSK_BIAS           -37.0   /* difference between FSK modem RSSI offset and "stand-alone" modem RSSI offset */
+#define     RSSI_FSK_REF            -70.0   /* linearize FSK RSSI curve around -70 dBm */
+#define     RSSI_FSK_SLOPE          0.8
+
 /* Board-specific RSSI calibration constants */
 #if (CFG_BRD_NANO868 == 1)
-	#define		RSSI_OFFSET_LORA_MULTI	-128.0	/* calibrated value */
-	#define		RSSI_OFFSET_LORA_STD	-167.0	/* calibrated for all bandwidth */
-	#define		RSSI_OFFSET_FSK			-146.5	/* calibrated value */
-	#define		RSSI_SLOPE_FSK			1.2		/* calibrated value */
-#elif (CFG_BRD_REF1301 == 1)
-	#define		RSSI_OFFSET_LORA_MULTI	-129.0	/* calibrated value */
-	#define		RSSI_OFFSET_LORA_STD	-164.0	/* calibrated for all bandwidth */
-	#define		RSSI_OFFSET_FSK			-146.5	/* todo */
-	#define		RSSI_SLOPE_FSK			1.2		/* todo */
+	#define		RSSI_BOARD_OFFSET       176
+#elif (CFG_BRD_1301REF868 == 1)
+	#define		RSSI_BOARD_OFFSET       166
+#elif (CFG_BRD_1301REF433 == 1)
+	#define		RSSI_BOARD_OFFSET       176
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
 #elif (CFG_BRD_NONE == 1)
-	#define		RSSI_OFFSET_LORA_MULTI	0.0
-	#define		RSSI_OFFSET_LORA_STD	0.0
-	#define		RSSI_OFFSET_FSK			0.0
-	#define		RSSI_SLOPE_FSK			1.0
+	#define		RSSI_BOARD_OFFSET       0
 #endif
 
 /* constant arrays defining hardware capability */
@@ -168,35 +169,35 @@ typedef struct {
 #if (CFG_BRD_NANO868 == 1)
 	#define	CUSTOM_TX_POW_TABLE		1 /* is custom table loading sequence needed ? */
 	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
-		{	0,	3,	8,	2},\
-		{	0,	3,	9,	3},\
-		{	0,	3,	10,	5},\
-		{	0,	3,	12,	7},\
-		{	0,	3,	14,	9},\
+		{	0,	3,	 8,	 2},\
+		{	0,	3,	 9,	 3},\
+		{	0,	3,	10,	 5},\
+		{	0,	3,	12,	 7},\
+		{	0,	3,	14,	 9},\
 		{	0,	3,	15,	10},\
-		{	1,	3,	8,	12},\
-		{	1,	3,	9,	14},\
+		{	1,	3,	 8,	12},\
+		{	1,	3,	 9,	14},\
 		{	1,	3,	10,	15},\
 		{	1,	3,	11,	17},\
 		{	1,	3,	12,	18},\
 		{	1,	3,	13,	20},\
-		{	2,	3,	8,	21},\
-		{	2,	3,	9,	23},\
+		{	2,	3,	 8,	21},\
+		{	2,	3,	 9,	23},\
 		{	2,	3,	11,	25},\
 		{	2,	3,	13,	27},\
 	}; /* calibrated */
-#elif (CFG_BRD_REF1301 == 1)
+#elif (CFG_BRD_1301REF868 == 1)
 	#define	CUSTOM_TX_POW_TABLE		1
 	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
-		{	0,	3,	8,	-9},\
+		{	0,	3,	 8,	-9},\
 		{	0,	3,	10,	-6},\
 		{	0,	3,	12,	-3},\
-		{	1,	3,	8,	0},\
-		{	1,	3,	10,	4},\
-		{	1,	3,	12,	7},\
-		{	1,	3,	13,	8},\
-		{	1,	3,	15,	9},\
-		{	2,	3,	9,	10},\
+		{	1,	3,	 8,	 0},\
+		{	1,	3,	10,	 4},\
+		{	1,	3,	12,	 7},\
+		{	1,	3,	13,	 8},\
+		{	1,	3,	15,	 9},\
+		{	2,	3,	 9,	10},\
 		{	2,	3,	10,	12},\
 		{	2,	3,	11,	13},\
 		{	3,	3,	10,	21},\
@@ -205,6 +206,27 @@ typedef struct {
 		{	3,	3,	13,	25},\
 		{	3,	3,	15,	26},\
 	}; /* calibrated */
+#elif (CFG_BRD_1301REF433 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	// WARNING: TABLE NO CALIBRATED, COPIED FOR 868
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 8,	-9},\
+		{	0,	3,	10,	-6},\
+		{	0,	3,	12,	-3},\
+		{	1,	3,	 8,	 0},\
+		{	1,	3,	10,	 4},\
+		{	1,	3,	12,	 7},\
+		{	1,	3,	13,	 8},\
+		{	1,	3,	15,	 9},\
+		{	2,	3,	 9,	10},\
+		{	2,	3,	10,	12},\
+		{	2,	3,	11,	13},\
+		{	3,	3,	10,	21},\
+		{	3,	3,	12,	23},\
+		{	3,	3,	12,	24},\
+		{	3,	3,	13,	25},\
+		{	3,	3,	15,	26},\
+	}; /* TODO: calibration */
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -272,8 +294,10 @@ typedef struct {
 
 #if (CFG_BRD_NANO868 == 1)
 	#define		CFG_BRD_STR		"dev_nano_868"
-#elif (CFG_BRD_REF1301 == 1)
-	#define		CFG_BRD_STR		"ref_1301_57nf"
+#elif (CFG_BRD_1301REF868 == 1)
+	#define		CFG_BRD_STR		"ref_1301_868"
+#elif (CFG_BRD_1301REF433 == 1)
+	#define		CFG_BRD_STR		"ref_1301_433"
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -291,6 +315,7 @@ const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CF
 
 #include "arb_fw.var" /* external definition of the variable */
 #include "agc_fw.var" /* external definition of the variable */
+#include "cal_fw.var" /* external definition of the variable */
 
 /*
 The following static variables are the configuration set that the user can
@@ -318,6 +343,12 @@ static bool lora_rx_ppm_offset;
 
 static uint8_t fsk_rx_bw; /* bandwidth setting of FSK modem */
 static uint32_t fsk_rx_dr; /* FSK modem datarate in bauds */
+
+/* TX I/Q imbalance coefficients for mixer gain = 8 to 15 */
+static int8_t cal_offset_a_i[8]; /* TX I offset for radio A */
+static int8_t cal_offset_a_q[8]; /* TX Q offset for radio A */
+static int8_t cal_offset_b_i[8]; /* TX I offset for radio B */
+static int8_t cal_offset_b_q[8]; /* TX Q offset for radio B */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
@@ -828,6 +859,10 @@ int lgw_start(void) {
 	int32_t read_val;
 	uint8_t load_val;
 	
+	uint8_t cal_cmd;
+	uint16_t cal_time;
+	uint8_t cal_status;
+	
 	if (lgw_is_started == true) {
 		DEBUG_MSG("Note: LoRa concentrator already started, restarting it now\n");
 	}
@@ -841,13 +876,13 @@ int lgw_start(void) {
 	/* reset the registers (also shuts the radios down) */
 	lgw_soft_reset();
 	
-	/* Ungate clocks (gated by default) */
+	/* ungate clocks (gated by default) */
 	lgw_reg_w(LGW_GLOBAL_EN, 1);
 	
 	/* switch on and reset the radios (also starts the 32 MHz XTAL) */
 	lgw_reg_w(LGW_RADIO_A_EN,1);
 	lgw_reg_w(LGW_RADIO_B_EN,1);
-	wait_ms(500);
+	wait_ms(500); /* TODO: optimize */
 	lgw_reg_w(LGW_RADIO_RST,1);
 	wait_ms(5);
 	lgw_reg_w(LGW_RADIO_RST,0);
@@ -856,15 +891,97 @@ int lgw_start(void) {
 	setup_sx125x(0, rf_rx_freq[0]);
 	setup_sx125x(1, rf_rx_freq[1]);
 	
-	/* TODO load the calibration firmware and wait for calibration to end */
+	/* select calibration command */
+	cal_cmd = 0;
+	cal_cmd |= rf_enable[0] ? 0x01 : 0x00; /* Bit 0: Calibrate Rx IQ mismatch compensation on radio A */
+	cal_cmd |= rf_enable[1] ? 0x02 : 0x00; /* Bit 1: Calibrate Rx IQ mismatch compensation on radio B */
+	cal_cmd |= (rf_enable[0] && rf_tx_enable[0]) ? 0x04 : 0x00; /* Bit 2: Calibrate Tx DC offset on radio A */
+	cal_cmd |= (rf_enable[1] && rf_tx_enable[1]) ? 0x08 : 0x00; /* Bit 3: Calibrate Tx DC offset on radio B */
+	cal_cmd |= 0x10; /* Bit 4: 0: calibrate with DAC gain=2, 1: with DAC gain=3 (use 3) */
 	
-	/* in the absence of calibration firmware, do a "manual" calibration */
-	lgw_reg_w(LGW_TX_OFFSET_I,10);
-	lgw_reg_w(LGW_TX_OFFSET_Q,5);
-	lgw_reg_w(LGW_IQ_MISMATCH_A_AMP_COEFF,63);
-	lgw_reg_w(LGW_IQ_MISMATCH_A_PHI_COEFF,9);
-	lgw_reg_w(LGW_IQ_MISMATCH_B_AMP_COEFF,0);
-	lgw_reg_w(LGW_IQ_MISMATCH_B_PHI_COEFF,0);
+	#if (CFG_RADIO_1257 == 1)
+	cal_cmd |= 0x00; /* Bit 5: 0: SX1257, 1: SX1255 */
+	#elif (CFG_RADIO_1255 == 1)
+	cal_cmd |= 0x20; /* Bit 5: 0: SX1257, 1: SX1255 */
+	#endif
+	
+	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1))
+	cal_cmd |= 0x00; /* Bit 6-7: Board type 0: ref, 1: FPGA, 3: board X */
+	cal_time = 2300; /* measured between 2.1 and 2.2 sec, because 1 TX only */
+	#elif (CFG_BRD_NANO868 == 1)
+	cal_cmd |= 0x40; /* Bit 6-7: Board type 0: ref, 1: FPGA, 3: board X */
+	cal_time = 5200; /* measured between 5.0 and 5.1 sec */
+	#else
+	cal_cmd |= 0xC0; /* Bit 6-7: Board type 0: ref, 1: FPGA, 3: board X */
+	cal_time = 4200; /* measured between 4.0 and 4.1 sec */
+	#endif
+	
+	/* Load the calibration firmware  */
+	load_firmware(MCU_AGC, cal_firmware, MCU_AGC_FW_BYTE);
+	lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL,0); /* gives to AGC MCU the control of the radios */
+	lgw_reg_w(LGW_RADIO_SELECT,cal_cmd); /* send calibration configuration word */
+	lgw_reg_w(LGW_MCU_RST_1,0);
+	lgw_reg_w(LGW_PAGE_REG,3); /* Calibration will start on this condition as soon as MCU can talk to concentrator registers */
+	lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL,0); /* Give control of concentrator registers to MCU */
+	
+	/* Wait for calibration to end */
+	DEBUG_PRINTF("Note: calibration started (time: %u ms)\n", cal_time);
+	wait_ms(cal_time); /* Wait for end of calibration */
+	lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL,1); /* Take back control */
+	
+	/* Get calibration status */
+	lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
+	cal_status = (uint8_t)read_val;
+	/*
+		bit 7: calibration finished
+		bit 0: could access SX1301 registers
+		bit 1: could access radio A registers
+		bit 2: could access radio B registers
+		bit 3: radio A RX image rejection successful
+		bit 4: radio B RX image rejection successful
+		bit 5: radio A TX imbalance correction successful
+		bit 6: radio B TX imbalance correction successful
+	*/
+	if ((cal_status & 0x81) != 0x81) {
+		DEBUG_PRINTF("ERROR: CALIBRATION FAILURE (STATUS = %u)\n", cal_status);
+		return LGW_HAL_ERROR;
+	} else {
+		DEBUG_PRINTF("Note: calibration finished (status = %u)\n", cal_status);
+	}
+	if (rf_enable[0] && ((cal_status & 0x02) == 0)) {
+		DEBUG_MSG("WARNING: calibration could not access radio A\n");
+	}
+	if (rf_enable[1] && ((cal_status & 0x04) == 0)) {
+		DEBUG_MSG("WARNING: calibration could not access radio B\n");
+	}
+	if (rf_enable[0] && ((cal_status & 0x08) == 0)) {
+		DEBUG_MSG("WARNING: problem in calibration of radio A for image rejection\n");
+	}
+	if (rf_enable[1] && ((cal_status & 0x10) == 0)) {
+		DEBUG_MSG("WARNING: problem in calibration of radio B for image rejection\n");
+	}
+	if (rf_enable[0] && rf_tx_enable[0] && ((cal_status & 0x20) == 0)) {
+		DEBUG_MSG("WARNING: problem in calibration of radio A for TX imbalance\n");
+	}
+	if (rf_enable[1] && rf_tx_enable[1] && ((cal_status & 0x40) == 0)) {
+		DEBUG_MSG("WARNING: problem in calibration of radio B for TX imbalance\n");
+	}
+	
+	/* Get TX DC offset values */
+	for(i=0; i<=7; ++i) {
+		lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, 0xA0+i);
+		lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
+		cal_offset_a_i[i] = (int8_t)read_val;
+		lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, 0xA8+i);
+		lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
+		cal_offset_a_q[i] = (int8_t)read_val;
+		lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, 0xB0+i);
+		lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
+		cal_offset_b_i[i] = (int8_t)read_val;
+		lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, 0xB8+i);
+		lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
+		cal_offset_b_q[i] = (int8_t)read_val;
+	}
 	
 	/* load adjusted parameters */
 	lgw_constant_adjust();
@@ -988,9 +1105,9 @@ int lgw_start(void) {
 	#if (CUSTOM_TX_POW_TABLE == 1)
 		DEBUG_MSG("Info: loading custom TX gain table\n");
 		for(i=0; i<TX_POW_LUT_SIZE; ++i) {
-			load_val = tx_pow_table[i].mix_gain + (16 * tx_pow_table[i].dac_gain) + (64 * tx_pow_table[i].pa_gain);
-			lgw_reg_w(LGW_RADIO_SELECT,1); /* 1 = start a transaction */
+			lgw_reg_w(LGW_RADIO_SELECT, AGC_CMD_WAIT); /* start a transaction */
 			wait_ms(1);
+			load_val = tx_pow_table[i].mix_gain + (16 * tx_pow_table[i].dac_gain) + (64 * tx_pow_table[i].pa_gain);
 			lgw_reg_w(LGW_RADIO_SELECT, load_val);
 			wait_ms(1);
 			lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
@@ -1000,9 +1117,9 @@ int lgw_start(void) {
 			}
 		}
 	#else
-		load_val = 2; /* 2 = abort LUT update */
-		lgw_reg_w(LGW_RADIO_SELECT,1); /* 1 = start a transaction */
+		lgw_reg_w(LGW_RADIO_SELECT, AGC_CMD_WAIT); /* start a transaction */
 		wait_ms(1);
+		load_val = AGC_CMD_ABORT;
 		lgw_reg_w(LGW_RADIO_SELECT, load_val); 
 		wait_ms(1);
 		DEBUG_MSG("Info: TX gain LUT update skipped, using default LUT\n");
@@ -1013,7 +1130,14 @@ int lgw_start(void) {
 		}
 	#endif
 	
-	lgw_reg_w(LGW_RADIO_SELECT,1);
+	/* Load chan_select firmware option */
+	lgw_reg_w(LGW_RADIO_SELECT, AGC_CMD_WAIT);
+	wait_ms(1);
+	lgw_reg_w(LGW_RADIO_SELECT, 0);
+	wait_ms(1);
+	
+	/* End AGC firmware init and check status */
+	lgw_reg_w(LGW_RADIO_SELECT, AGC_CMD_WAIT);
 	wait_ms(1);
 	lgw_reg_w(LGW_RADIO_SELECT, radio_select); /* Load intended value of RADIO_SELECT */
 	wait_ms(1);
@@ -1030,6 +1154,13 @@ int lgw_start(void) {
 	/* enable LEDs */
 	lgw_reg_w(LGW_GPIO_MODE,31);
 	// lgw_reg_w(LGW_GPIO_SELECT_OUTPUT,0); /* default 0 */
+	/* LED table :
+	DGPIO0 -> packets waiting in the RX FIFO, ready to be fetched
+	DGPIO1 -> multi-SF RX LoRa modems activity (channels 0 to 7)
+	DGPIO2 -> stand-alone RX LoRa modem activity (channel 8))
+	DGPIO3 -> FSK RX modem activity (channel 9)
+	DGPIO4 -> TX modem active (either LoRa or FSK)
+	*/
 	
 	lgw_is_started = true;
 	return LGW_HAL_SUCCESS;
@@ -1102,6 +1233,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		p->if_chain = buff[sz+0];
 		ifmod = ifmod_config[p->if_chain];
 		DEBUG_PRINTF("[%d %d]\n", p->if_chain, ifmod);
+		p->rssi = (float)buff[sz+5] - RSSI_BOARD_OFFSET;
 		
 		if ((ifmod == IF_LORA_MULTI) || (ifmod == IF_LORA_STD)) {
 			DEBUG_MSG("Note: LoRa packet\n");
@@ -1127,10 +1259,8 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			p->snr_min = ((float)((int8_t)buff[sz+3]))/4;
 			p->snr_max = ((float)((int8_t)buff[sz+4]))/4;
 			if (ifmod == IF_LORA_MULTI) {
-				p->rssi = RSSI_OFFSET_LORA_MULTI + (float)buff[sz+5];
 				p->bandwidth = BW_125KHZ; /* fixed in hardware */
 			} else {
-				p->rssi = RSSI_OFFSET_LORA_STD + (float)buff[sz+5];
 				p->bandwidth = lora_rx_bw; /* get the parameter from the config variable */
 			}
 			sf = (buff[sz+1] >> 4) & 0x0F;
@@ -1198,6 +1328,12 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 				timestamp_correction = 0;
 				DEBUG_MSG("WARNING: invalid packet, no timestamp correction\n");
 			}
+			
+			/* RSSI correction */
+			if (ifmod == IF_LORA_MULTI) {
+				p->rssi -= RSSI_MULTI_BIAS;
+			}
+			
 		} else if (ifmod == IF_FSK_STD) {
 			DEBUG_MSG("Note: FSK packet\n");
 			switch(stat_fifo & 0x07) {
@@ -1207,7 +1343,6 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 				default: p->status = STAT_UNDEFINED;
 			}
 			p->modulation = MOD_FSK;
-			p->rssi = (RSSI_OFFSET_FSK + (float)buff[sz+5])/RSSI_SLOPE_FSK;
 			p->snr = -128.0;
 			p->snr_min = -128.0;
 			p->snr_max = -128.0;
@@ -1215,6 +1350,10 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			p->datarate = fsk_rx_dr;
 			p->coderate = CR_UNDEFINED;
 			timestamp_correction = 0; // TODO: implement FSK timestamp correction
+			
+			/* RSSI correction */
+			p->rssi -= RSSI_FSK_BIAS;
+			p->rssi = ((p->rssi - RSSI_FSK_REF) * RSSI_FSK_SLOPE) + RSSI_FSK_REF;
 		} else {
 			DEBUG_MSG("ERROR: UNEXPECTED PACKET ORIGIN\n");
 			p->status = STAT_UNDEFINED;
@@ -1255,6 +1394,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	int transfer_size = 0; /* data to transfer from host to TX databuffer */
 	int payload_offset = 0; /* start of the payload content in the databuffer */
 	uint8_t pow_index = 0; /* 4-bit value to set the firmware TX power */
+	uint8_t target_mix_gain = 0; /* used to select the proper I/Q offset correction */
 	
 	/* check if the concentrator is running */
 	if (lgw_is_started == false) {
@@ -1328,6 +1468,18 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		if (tx_pow_table[pow_index].rf_power <= pkt_data.rf_power) {
 			break;
 		}
+	}
+	
+	/* loading TX imbalance correction */
+	target_mix_gain = tx_pow_table[pow_index].mix_gain;
+	target_mix_gain = (target_mix_gain <  8)?  8 : target_mix_gain;
+	target_mix_gain = (target_mix_gain > 15)? 15 : target_mix_gain;
+	if (pkt_data.rf_chain == 0) { /* use radio A calibration table */
+		lgw_reg_w(LGW_TX_OFFSET_I, cal_offset_a_i[target_mix_gain - 8]);
+		lgw_reg_w(LGW_TX_OFFSET_Q, cal_offset_a_q[target_mix_gain - 8]);
+	} else { /* use radio B calibration table */
+		lgw_reg_w(LGW_TX_OFFSET_I, cal_offset_b_i[target_mix_gain - 8]);
+		lgw_reg_w(LGW_TX_OFFSET_Q, cal_offset_b_q[target_mix_gain - 8]);
 	}
 	
 	/* fixed metadata, useful payload and misc metadata compositing */

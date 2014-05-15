@@ -42,10 +42,17 @@ clean:
 	rm -f $(APP_NAME)
 	find . -name global_conf.json -exec rm -i {} \;
 
-### HAL library
+### HAL library (do no force multiple library rebuild even with 'make -B')
+
+$(LGW_PATH)/inc/config.h:
+	@if test ! -f $@; then \
+	$(MAKE) all -C $(LGW_PATH); \
+	fi
 
 $(LGW_PATH)/libloragw.a: $(LGW_INC)
-	$(MAKE) all -C $(LGW_PATH)
+	@if test ! -f $@; then \
+	$(MAKE) all -C $(LGW_PATH); \
+	fi
 
 ### Sub-modules compilation
 

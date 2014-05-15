@@ -43,10 +43,17 @@ clean:
 	rm -f obj/*.o
 	rm -f $(APP_NAME)
 
-### HAL library
+### HAL library (do no force multiple library rebuild even with 'make -B')
+
+$(LGW_PATH)/inc/config.h:
+	@if test ! -f $@; then \
+	$(MAKE) all -C $(LGW_PATH); \
+	fi
 
 $(LGW_PATH)/libloragw.a: $(LGW_INC)
-	$(MAKE) all -C $(LGW_PATH)
+	@if test ! -f $@; then \
+	$(MAKE) all -C $(LGW_PATH); \
+	fi
 
 ### Main program compilation and assembly
 

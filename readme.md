@@ -56,6 +56,14 @@ gateways as receivers.
 3. Changelog
 -------------
 
+### v1.4.0 ###
+
+* Added calibration routine to optimize RF performance
+* Added support for SX1301 433 MHz reference board
+* Improved AGC firmware
+* Improved RSSI accuracy
+* Improved utilities Makefile
+
 ### v1.3.0 ###
 
 * Added TX power management.
