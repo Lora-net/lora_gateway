@@ -98,6 +98,18 @@ else
   CFG_BRD_OPT := CFG_BRD_NONE
 endif
 
+ifeq ($(CFG_NET),private)
+  CFG_NET_MSG := Private network
+  CFG_NET_OPT := CFG_NET_PRIVATE
+else ifeq ($(CFG_NET),lora_mac)
+  CFG_NET_MSG := LoRa MAC network
+  CFG_NET_OPT := CFG_NET_LORAMAC
+else
+  $(warning [Warning] No network type selected, assume private network by default.)
+  CFG_NET_MSG := Private network
+  CFG_NET_OPT := CFG_NET_PRIVATE
+endif
+
 ### linking options
 
 ifeq ($(CFG_SPI),native)
@@ -142,6 +154,9 @@ inc/config.h: ../VERSION library.cfg
   # Board misc. parameters
 	@echo "Board misc. param : $(CFG_BRD_MSG)"
 	@echo "	#define $(CFG_BRD_OPT)	1" >> $@
+  # Network type
+	@echo "Network type      : $(CFG_NET_MSG)"
+	@echo "	#define $(CFG_NET_OPT)	1" >> $@
   # Debug options
 	@echo "	#define DEBUG_AUX	$(DEBUG_AUX)" >> $@
 	@echo "	#define DEBUG_SPI	$(DEBUG_SPI)" >> $@

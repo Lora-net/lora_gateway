@@ -332,8 +332,16 @@ typedef struct {
 	#define		CFG_BRD_STR		"brd?"
 #endif
 
+#if (CFG_NET_PRIVATE == 1)
+	#define		CFG_NET_STR		"private"
+#elif (CFG_NET_LORAMAC == 1)
+	#define		CFG_NET_STR		"lora_mac"
+#else
+	#define		CFG_NET_STR		"network?"
+#endif
+
 /* Version string, used to identify the library version/options once compiled */
-const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CFG_SPI_STR " " CFG_CHIP_STR " " CFG_RADIO_STR " " CFG_BAND_STR " " CFG_BRD_STR ";";
+const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CFG_SPI_STR " " CFG_CHIP_STR " " CFG_RADIO_STR " " CFG_BAND_STR " " CFG_BRD_STR " " CFG_NET_STR ";";
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -642,8 +650,13 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_SYNCH_DETECT_TH,1); /* default 1 */
 	// lgw_reg_w(LGW_ZERO_PAD,0); /* default 0 */
 	lgw_reg_w(LGW_SNR_AVG_CST,3); /* default 2 */
-	// lgw_reg_w(LGW_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
-	// lgw_reg_w(LGW_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
+	#if (CFG_NET_LORAMAC == 1)
+	lgw_reg_w(LGW_FRAME_SYNCH_PEAK1_POS,3); /* default 1 */
+	lgw_reg_w(LGW_FRAME_SYNCH_PEAK2_POS,4); /* default 2 */
+	#elif (CFG_NET_PRIVATE == 1)
+	//lgw_reg_w(LGW_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
+	//lgw_reg_w(LGW_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
+	#endif
 	// lgw_reg_w(LGW_PREAMBLE_FINE_TIMING_GAIN,1); /* default 1 */
 	// lgw_reg_w(LGW_ONLY_CRC_EN,1); /* default 1 */
 	// lgw_reg_w(LGW_PAYLOAD_FINE_TIMING_GAIN,2); /* default 2 */
@@ -658,8 +671,13 @@ void lgw_constant_adjust(void) {
 	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_GAIN,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_SYNCH_DETECT_TH,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_ZERO_PAD,0); /* default 0 */
-	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
-	// lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
+	#if (CFG_NET_LORAMAC == 1)
+	lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK1_POS,3); /* default 1 */
+	lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK2_POS,4); /* default 2 */
+	#elif (CFG_NET_PRIVATE == 1)
+	//lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
+	//lgw_reg_w(LGW_MBWSSF_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
+	#endif
 	// lgw_reg_w(LGW_MBWSSF_ONLY_CRC_EN,1); /* default 1 */
 	// lgw_reg_w(LGW_MBWSSF_PAYLOAD_FINE_TIMING_GAIN,2); /* default 2 */
 	// lgw_reg_w(LGW_MBWSSF_PREAMBLE_FINE_TIMING_GAIN,1); /* default 1 */
@@ -692,6 +710,13 @@ void lgw_constant_adjust(void) {
 	/* TX LoRa */
 	// lgw_reg_w(LGW_TX_MODE,0); /* default 0 */
 	lgw_reg_w(LGW_TX_SWAP_IQ,1); /* "normal" polarity; default 0 */
+	#if (CFG_NET_LORAMAC == 1)
+	lgw_reg_w(LGW_TX_FRAME_SYNCH_PEAK1_POS,3); /* default 1 */
+	lgw_reg_w(LGW_TX_FRAME_SYNCH_PEAK2_POS,4); /* default 2 */
+	#elif (CFG_NET_PRIVATE == 1)
+	//lgw_reg_w(LGW_TX_FRAME_SYNCH_PEAK1_POS,1); /* default 1 */
+	//lgw_reg_w(LGW_TX_FRAME_SYNCH_PEAK2_POS,2); /* default 2 */
+	#endif	
 	
 	/* TX FSK */
 	// lgw_reg_w(LGW_FSK_TX_GAUSSIAN_EN,1); /* default 1 */

@@ -56,6 +56,10 @@ gateways as receivers.
 3. Changelog
 -------------
 
+### v1.5.0 ###
+
+* Adding option to discriminate LoRa MAC networks from private LoRa networks at PHY level.
+
 ### v1.4.1 ###
 
 * Enabling support for FSK per LoRa MAC specification
