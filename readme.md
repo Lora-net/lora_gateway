@@ -56,6 +56,13 @@ gateways as receivers.
 3. Changelog
 -------------
 
+### v1.4.1 ###
+
+* Enabling support for FSK per LoRa MAC specification
+* Adjusting TX and RX calibration set on 868 reference board
+* Added specific RX/TX calibration set for Kerlink 868 "IoT station" gateway
+* Changed default SPI port for native driver to Kerlink SPI device number
+
 ### v1.4.0 ###
 
 * Added calibration routine to optimize RF performance

@@ -44,7 +44,7 @@ Maintainer: Sylvain Miermont
 
 #define IF_HZ_TO_REG(f)		(f << 5)/15625
 #define	SET_PPM_ON(bw,dr)	(((bw == BW_125KHZ) && ((dr == DR_LORA_SF11) || (dr == DR_LORA_SF12))) || ((bw == BW_250KHZ) && (dr == DR_LORA_SF12)))
-#define TRACE() 		fprintf(stderr, "@ %s %d\n", __FUNCTION__, __LINE__);
+#define TRACE()				fprintf(stderr, "@ %s %d\n", __FUNCTION__, __LINE__);
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS & TYPES -------------------------------------------- */
@@ -58,12 +58,13 @@ Maintainer: Sylvain Miermont
 #define		TX_METADATA_NB		16
 #define		RX_METADATA_NB		16
 
-#define     AGC_CMD_WAIT        16
-#define     AGC_CMD_ABORT       17
+#define		AGC_CMD_WAIT		16
+#define		AGC_CMD_ABORT		17
 
 #define		MIN_LORA_PREAMBLE		4
 #define		STD_LORA_PREAMBLE		6
 #define		MIN_FSK_PREAMBLE		3
+#define		STD_FSK_PREAMBLE		5
 #define		PLL_LOCK_MAX_ATTEMPTS	5
 
 #define		TX_START_DELAY		1500
@@ -100,23 +101,25 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define 	SX125x_XOSC_GM_STARTUP	13	/* (default 13) */
 #define 	SX125x_XOSC_DISABLE		2	/* Disable of Xtal Oscillator blocks bit0:regulator, bit1:core(gm), bit2:amplifier */
 
-#define     RSSI_MULTI_BIAS         -34.5   /* difference between "multi" modem RSSI offset and "stand-alone" modem RSSI offset */
-#define     RSSI_FSK_BIAS           -37.0   /* difference between FSK modem RSSI offset and "stand-alone" modem RSSI offset */
-#define     RSSI_FSK_REF            -70.0   /* linearize FSK RSSI curve around -70 dBm */
-#define     RSSI_FSK_SLOPE          0.8
+#define		RSSI_MULTI_BIAS			-35		/* difference between "multi" modem RSSI offset and "stand-alone" modem RSSI offset */
+#define		RSSI_FSK_BIAS			-37.0	/* difference between FSK modem RSSI offset and "stand-alone" modem RSSI offset */
+#define		RSSI_FSK_REF			-70.0	/* linearize FSK RSSI curve around -70 dBm */
+#define		RSSI_FSK_SLOPE			0.8
 
 /* Board-specific RSSI calibration constants */
 #if (CFG_BRD_NANO868 == 1)
-	#define		RSSI_BOARD_OFFSET       176
+	#define		RSSI_BOARD_OFFSET		176
 #elif (CFG_BRD_1301REF868 == 1)
-	#define		RSSI_BOARD_OFFSET       166
+	#define		RSSI_BOARD_OFFSET		169.5
+#elif (CFG_BRD_KERLINK868 == 1)
+	#define		RSSI_BOARD_OFFSET		167
 #elif (CFG_BRD_1301REF433 == 1)
-	#define		RSSI_BOARD_OFFSET       176
+	#define		RSSI_BOARD_OFFSET		176
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
 #elif (CFG_BRD_NONE == 1)
-	#define		RSSI_BOARD_OFFSET       0
+	#define		RSSI_BOARD_OFFSET		0
 #endif
 
 /* constant arrays defining hardware capability */
@@ -189,22 +192,22 @@ typedef struct {
 #elif (CFG_BRD_1301REF868 == 1)
 	#define	CUSTOM_TX_POW_TABLE		1
 	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
-		{	0,	3,	 8,	-9},\
-		{	0,	3,	10,	-6},\
-		{	0,	3,	12,	-3},\
-		{	1,	3,	 8,	 0},\
-		{	1,	3,	10,	 4},\
-		{	1,	3,	12,	 7},\
-		{	1,	3,	13,	 8},\
-		{	1,	3,	15,	 9},\
-		{	2,	3,	 9,	10},\
-		{	2,	3,	10,	12},\
-		{	2,	3,	11,	13},\
-		{	3,	3,	10,	21},\
-		{	3,	3,	12,	23},\
-		{	3,	3,	12,	24},\
-		{	3,	3,	13,	25},\
-		{	3,	3,	15,	26},\
+		{	0,	3,	 8,	-6},\
+		{	0,	3,	10,	-3},\
+		{	0,	3,	12,	 0},\
+		{	1,	3,	 8,	 3},\
+		{	1,	3,	10,	 6},\
+		{	1,	3,	12,	10},\
+		{	1,	3,	13,	11},\
+		{	2,	3,	 9,	12},\
+		{	1,	3,	15,	13},\
+		{	2,	3,	10,	14},\
+		{	2,	3,	11,	16},\
+		{	3,	3,	 9,	20},\
+		{	3,	3,	10,	23},\
+		{	3,	3,	11,	25},\
+		{	3,	3,	12,	26},\
+		{	3,	3,	14,	27},\
 	}; /* calibrated */
 #elif (CFG_BRD_1301REF433 == 1)
 	#define	CUSTOM_TX_POW_TABLE		1
@@ -226,7 +229,27 @@ typedef struct {
 		{	3,	3,	12,	24},\
 		{	3,	3,	13,	25},\
 		{	3,	3,	15,	26},\
-	}; /* TODO: calibration */
+	}; /* TODO: approximative calibration, needs to be adjusted */
+#elif (CFG_BRD_KERLINK868 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 9,-10},\
+		{	0,	3,	12,	-6},\
+		{	0,	3,	15,	-3},\
+		{	1,	3,	 9,	 0},\
+		{	1,	3,	12,	 5},\
+		{	1,	3,	14,	 7},\
+		{	1,	3,	15,	 8},\
+		{	2,	3,	10,	10},\
+		{	2,	3,	11,	12},\
+		{	2,	3,	13,	15},\
+		{	3,	3,	 9,	17},\
+		{	3,	3,	10,	19},\
+		{	3,	3,	11,	21},\
+		{	3,	3,	12,	22},\
+		{	3,	3,	13,	23},\
+		{	3,	3,	15,	24},\
+	}; /* calibrated */
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -298,6 +321,8 @@ typedef struct {
 	#define		CFG_BRD_STR		"ref_1301_868"
 #elif (CFG_BRD_1301REF433 == 1)
 	#define		CFG_BRD_STR		"ref_1301_433"
+#elif (CFG_BRD_KERLINK868 == 1)
+	#define		CFG_BRD_STR		"kerlink_868"
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -648,15 +673,14 @@ void lgw_constant_adjust(void) {
 	/* FSK demodulator setup */
 	lgw_reg_w(LGW_FSK_RSSI_LENGTH,4); /* default 0 */
 	lgw_reg_w(LGW_FSK_PKT_MODE,1); /* variable length, default 0 */
-	lgw_reg_w(LGW_FSK_PSIZE,3); /* ???, default 0 */
+	lgw_reg_w(LGW_FSK_PSIZE,2); /* pattern size-1, default 0 */
 	lgw_reg_w(LGW_FSK_CRC_EN,1); /* default 0 */
-	// lgw_reg_w(LGW_FSK_DCFREE_ENC,0); /* default 0 */
+	lgw_reg_w(LGW_FSK_DCFREE_ENC,2); /* default 0 */
 	// lgw_reg_w(LGW_FSK_CRC_IBM,0); /* default 0 */
 	lgw_reg_w(LGW_FSK_ERROR_OSR_TOL,10); /* default 0 */
 	lgw_reg_w(LGW_FSK_REF_PATTERN_LSB,0x01010101); /* default 0 */
-	lgw_reg_w(LGW_FSK_REF_PATTERN_MSB,0x01010101); /* default 0 */
+	lgw_reg_w(LGW_FSK_REF_PATTERN_MSB,0xC194C101); /* default 0 */
 	lgw_reg_w(LGW_FSK_PKT_LENGTH,255); /* max packet length in variable length mode */
-	
 	// lgw_reg_w(LGW_FSK_NODE_ADRS,0); /* default 0 */
 	// lgw_reg_w(LGW_FSK_BROADCAST,0); /* default 0 */
 	// lgw_reg_w(LGW_FSK_AUTO_AFC_ON,0); /* default 0 */
@@ -671,9 +695,9 @@ void lgw_constant_adjust(void) {
 	
 	/* TX FSK */
 	// lgw_reg_w(LGW_FSK_TX_GAUSSIAN_EN,1); /* default 1 */
-	lgw_reg_w(LGW_FSK_TX_GAUSSIAN_SELECT_BT,1); /* Gaussian filter always on TX, default 0 */
-	lgw_reg_w(LGW_FSK_TX_PSIZE,3); /* default 0 */
-	// lgw_reg_w(LGW_FSK_TX_PATTERN_EN, 1); /* default 1 */
+	lgw_reg_w(LGW_FSK_TX_GAUSSIAN_SELECT_BT,2); /* Gaussian filter always on TX, default 0 */
+	lgw_reg_w(LGW_FSK_TX_PSIZE,2); /* default 0 */
+	// lgw_reg_w(LGW_FSK_TX_PATTERN_EN,1); /* default 1 */
 	// lgw_reg_w(LGW_FSK_TX_PREAMBLE_SEQ,0); /* default 0 */
 	
 	return;
@@ -905,7 +929,7 @@ int lgw_start(void) {
 	cal_cmd |= 0x20; /* Bit 5: 0: SX1257, 1: SX1255 */
 	#endif
 	
-	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1))
+	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1))
 	cal_cmd |= 0x00; /* Bit 6-7: Board type 0: ref, 1: FPGA, 3: board X */
 	cal_time = 2300; /* measured between 2.1 and 2.2 sec, because 1 TX only */
 	#elif (CFG_BRD_NANO868 == 1)
@@ -1587,7 +1611,9 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[11] = (pkt_data.no_crc?0:0x02); /* always in fixed length packet mode, no DC-free encoding, CCITT CRC if CRC is not disabled  */
 		
 		/* metadata 12 & 13, FSK preamble size */
-		if (pkt_data.preamble < MIN_FSK_PREAMBLE) { /* enforce minimum preamble size */
+		if (pkt_data.preamble == 0) { /* if not explicit, use LoRa MAC preamble size */
+			pkt_data.preamble = STD_FSK_PREAMBLE;
+		} else if (pkt_data.preamble < MIN_FSK_PREAMBLE) { /* enforce minimum preamble size */
 			pkt_data.preamble = MIN_FSK_PREAMBLE;
 			DEBUG_MSG("Note: preamble length adjusted to respect minimum FSK preamble size\n");
 		}

@@ -136,7 +136,7 @@ Maintainer: Sylvain Miermont
 #if (CFG_BRD_NANO868 == 1)
 	#define LGW_RF_TX_ENABLE	{ true, true}	/* both radio A and B are usable in TX */
 	#define LGW_RF_CLKOUT		{ true, true}	/* both radios have clkout enabled */
-#elif ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1))
+#elif ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1))
 	#define LGW_RF_TX_ENABLE	{ true,false}	/* radio B TX output is disconnected */
 	#define LGW_RF_CLKOUT		{false, true}	/* radio A clkout disabled for spur optimization */
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===

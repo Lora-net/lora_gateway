@@ -14,7 +14,7 @@ CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I.
 ### library.cfg configuration file processing
 
 ifeq ($(CFG_SPI),native)
-  CFG_SPI_MSG := Linux native SPI driver (/dev/spidev0.0)
+  CFG_SPI_MSG := Linux native SPI driver (/dev/spidev32766.0)
   CFG_SPI_OPT := CFG_SPI_NATIVE
 else ifeq ($(CFG_SPI),ftdi)
   CFG_SPI_MSG := FTDI SPI-over-USB bridge using libmpsse/libftdi/libusb
@@ -89,6 +89,9 @@ else ifeq ($(CFG_BRD),ref_1301_868)
 else ifeq ($(CFG_BRD),ref_1301_433)
   CFG_BRD_MSG := SX1301 reference board with SX1255 radios, 433 MHz filters
   CFG_BRD_OPT := CFG_BRD_1301REF433
+else ifeq ($(CFG_BRD),kerlink_868)
+  CFG_BRD_MSG := Kerlink LoRa 868MHz gateway
+  CFG_BRD_OPT := CFG_BRD_KERLINK868
 else
   $(info [Info] No specific board selected.)
   CFG_BRD_MSG := None
