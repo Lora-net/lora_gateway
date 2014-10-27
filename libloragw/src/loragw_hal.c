@@ -89,7 +89,7 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define		SX125x_TX_MIX_GAIN		14	/* -38 + 2*TxMixGain dB (default 14) */
 #define		SX125x_TX_PLL_BW		3	/* 0:75, 1:150, 2:225, 3:300 kHz (default 3) */
 #define		SX125x_TX_ANA_BW		0	/* 17.5 / 2*(41-TxAnaBw) MHz (default 0) */
-#define		SX125x_TX_DAC_BW		7	/* 24 + 8*TxDacBw Nb FIR taps (default 2) */
+#define		SX125x_TX_DAC_BW		5	/* 24 + 8*TxDacBw Nb FIR taps (default 2) */
 #define		SX125x_RX_LNA_GAIN		1	/* 1 to 6, 1 highest gain */
 #define		SX125x_RX_BB_GAIN		12	/* 0 to 15 , 15 highest gain */
 #define 	SX125x_LNA_ZIN			1	/* 0:50, 1:200 Ohms (default 1) */
@@ -108,13 +108,21 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 
 /* Board-specific RSSI calibration constants */
 #if (CFG_BRD_NANO868 == 1)
-	#define		RSSI_BOARD_OFFSET		176
+	#define		RSSI_BOARD_OFFSET		176.0
 #elif (CFG_BRD_1301REF868 == 1)
-	#define		RSSI_BOARD_OFFSET		169.5
+	#define		RSSI_BOARD_OFFSET		166.0
 #elif (CFG_BRD_KERLINK868 == 1)
-	#define		RSSI_BOARD_OFFSET		167
+	#define		RSSI_BOARD_OFFSET		165.0
 #elif (CFG_BRD_1301REF433 == 1)
-	#define		RSSI_BOARD_OFFSET		176
+	#define		RSSI_BOARD_OFFSET		176.5
+#elif (CFG_BRD_KERLINK433 == 1)
+	#define		RSSI_BOARD_OFFSET		178.0
+#elif (CFG_BRD_CISCO433 == 1)
+	#define		RSSI_BOARD_OFFSET		175.5
+#elif (CFG_BRD_CISCO470 == 1)
+	#define		RSSI_BOARD_OFFSET		173.5
+#elif (CFG_BRD_CISCO780 == 1)
+	#define		RSSI_BOARD_OFFSET		168.0
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -250,6 +258,86 @@ typedef struct {
 		{	3,	3,	13,	23},\
 		{	3,	3,	15,	24},\
 	}; /* calibrated */
+#elif (CFG_BRD_KERLINK433 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 8, -6},\
+		{	0,	3,	11,	 0},\
+		{	0,	3,	14,	 3},\
+		{	1,	3,	 9,	 6},\
+		{	1,	3,	10,	 8},\
+		{	1,	3,	11,	10},\
+		{	1,	3,	12,	11},\
+		{	1,	3,	13,	12},\
+		{	1,	3,	14,	13},\
+		{	1,	3,	15,	14},\
+		{	2,	3,	11,	20},\
+		{	2,	3,	12,	21},\
+		{	3,	3,	 8,	22},\
+		{	3,	3,	 9,	24},\
+		{	3,	3,	10,	25},\
+		{	3,	3,	12,	26},\
+	}; /* calibrated */
+#elif (CFG_BRD_CISCO433 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 8,	-7},\
+		{	0,	3,	10,	-3},\
+		{	0,	3,	12,	 0},\
+		{	1,	3,	 8,	 4},\
+		{	1,	3,	10,	 7},\
+		{	1,	3,	11,	 8},\
+		{	1,	3,	12,	 9},\
+		{	2,	3,	 8,	11},\
+		{	2,	3,	 9,	14},\
+		{	2,	3,	10,	15},\
+		{	2,	3,	11,	17},\
+		{	2,	3,	12,	18},\
+		{	3,	3,	 8,	20},\
+		{	3,	3,	 9,	22},\
+		{	3,	3,	10,	23},\
+		{	3,	3,	11,	24},\
+	}; /* calibrated */
+#elif (CFG_BRD_CISCO470 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 9,	 0},\
+		{	0,	3,	13,	 4},\
+		{	1,	3,	 8,	 8},\
+		{	1,	3,	 9,	10},\
+		{	1,	3,	10,	11},\
+		{	1,	3,	11,	12},\
+		{	1,	3,	12,	13},\
+		{	1,	3,	13,	14},\
+		{	1,	3,	14,	15},\
+		{	2,	3,	 8,	16},\
+		{	2,	3,	 9,	18},\
+		{	2,	3,	10,	20},\
+		{	2,	3,	11,	21},\
+		{	2,	3,	13,	22},\
+		{	3,	3,	 9,	23},\
+		{	3,	3,	11,	24},\
+	}; /* calibrated */
+#elif (CFG_BRD_CISCO780 == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 8,	-12},\
+		{	0,	3,	11,	 -6},\
+		{	0,	3,	14,	 -3},\
+		{	1,	3,	 9,	  0},\
+		{	1,	3,	11,	  3},\
+		{	1,	3,	13,	  6},\
+		{	2,	3,	10,	  8},\
+		{	2,	3,	11,	 10},\
+		{	2,	3,	12,	 12},\
+		{	2,	3,	13,	 14},\
+		{	2,	3,	15,	 16},\
+		{	3,	3,	10,	 18},\
+		{	3,	3,	11,	 20},\
+		{	3,	3,	12,	 22},\
+		{	3,	3,	14,	 24},\
+		{	3,	3,	15,	 25},\
+	}; /* calibrated */
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -311,6 +399,8 @@ typedef struct {
 	#define		CFG_BAND_STR	"cn470"
 #elif (CFG_BAND_433 == 1)
 	#define		CFG_BAND_STR	"eu433"
+#elif (CFG_BAND_780 == 1)
+	#define		CFG_BAND_STR	"cn780"
 #else
 	#define		CFG_BAND_STR	"band?"
 #endif
@@ -323,6 +413,14 @@ typedef struct {
 	#define		CFG_BRD_STR		"ref_1301_433"
 #elif (CFG_BRD_KERLINK868 == 1)
 	#define		CFG_BRD_STR		"kerlink_868"
+#elif (CFG_BRD_KERLINK433 == 1)
+	#define		CFG_BRD_STR		"kerlink_433"
+#elif (CFG_BRD_CISCO433 == 1)
+	#define		CFG_BRD_STR		"cisco_433"
+#elif (CFG_BRD_CISCO470 == 1)
+	#define		CFG_BRD_STR		"cisco_470"
+#elif (CFG_BRD_CISCO780 == 1)
+	#define		CFG_BRD_STR		"cisco_780"
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -376,6 +474,8 @@ static bool lora_rx_ppm_offset;
 
 static uint8_t fsk_rx_bw; /* bandwidth setting of FSK modem */
 static uint32_t fsk_rx_dr; /* FSK modem datarate in bauds */
+static uint8_t fsk_sync_word_size = 3; /* default number of bytes for FSK sync word */
+static uint64_t fsk_sync_word= 0xC194C1; /* default FSK sync word (ALIGNED RIGHT, MSbit first) */
 
 /* TX I/Q imbalance coefficients for mixer gain = 8 to 15 */
 static int8_t cal_offset_a_i[8]; /* TX I offset for radio A */
@@ -691,13 +791,10 @@ void lgw_constant_adjust(void) {
 	/* FSK demodulator setup */
 	lgw_reg_w(LGW_FSK_RSSI_LENGTH,4); /* default 0 */
 	lgw_reg_w(LGW_FSK_PKT_MODE,1); /* variable length, default 0 */
-	lgw_reg_w(LGW_FSK_PSIZE,2); /* pattern size-1, default 0 */
 	lgw_reg_w(LGW_FSK_CRC_EN,1); /* default 0 */
 	lgw_reg_w(LGW_FSK_DCFREE_ENC,2); /* default 0 */
 	// lgw_reg_w(LGW_FSK_CRC_IBM,0); /* default 0 */
 	lgw_reg_w(LGW_FSK_ERROR_OSR_TOL,10); /* default 0 */
-	lgw_reg_w(LGW_FSK_REF_PATTERN_LSB,0x01010101); /* default 0 */
-	lgw_reg_w(LGW_FSK_REF_PATTERN_MSB,0xC194C101); /* default 0 */
 	lgw_reg_w(LGW_FSK_PKT_LENGTH,255); /* max packet length in variable length mode */
 	// lgw_reg_w(LGW_FSK_NODE_ADRS,0); /* default 0 */
 	// lgw_reg_w(LGW_FSK_BROADCAST,0); /* default 0 */
@@ -721,7 +818,6 @@ void lgw_constant_adjust(void) {
 	/* TX FSK */
 	// lgw_reg_w(LGW_FSK_TX_GAUSSIAN_EN,1); /* default 1 */
 	lgw_reg_w(LGW_FSK_TX_GAUSSIAN_SELECT_BT,2); /* Gaussian filter always on TX, default 0 */
-	lgw_reg_w(LGW_FSK_TX_PSIZE,2); /* default 0 */
 	// lgw_reg_w(LGW_FSK_TX_PATTERN_EN,1); /* default 1 */
 	// lgw_reg_w(LGW_FSK_TX_PREAMBLE_SEQ,0); /* default 0 */
 	
@@ -766,6 +862,7 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
+	
 	/* check if the concentrator is running */
 	if (lgw_is_started == true) {
 		DEBUG_MSG("ERROR: CONCENTRATOR IS RUNNING, STOP IT BEFORE TOUCHING CONFIGURATION\n");
@@ -887,7 +984,11 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
 			if_freq[if_chain] = conf.freq_hz;
 			fsk_rx_bw = conf.bandwidth;
 			fsk_rx_dr = conf.datarate;
-			DEBUG_PRINTF("Note: FSK if_chain %d configuration; en:%d freq:%d bw:%d dr:%d (%d real dr)\n", if_chain, if_enable[if_chain], if_freq[if_chain], fsk_rx_bw, fsk_rx_dr, LGW_XTAL_FREQU/(LGW_XTAL_FREQU/fsk_rx_dr));
+			if (conf.sync_word > 0) {
+				fsk_sync_word_size = conf.sync_word_size;
+				fsk_sync_word = conf.sync_word;
+			}	
+			DEBUG_PRINTF("Note: FSK if_chain %d configuration; en:%d freq:%d bw:%d dr:%d (%d real dr) sync:0x%0*llX\n", if_chain, if_enable[if_chain], if_freq[if_chain], fsk_rx_bw, fsk_rx_dr, LGW_XTAL_FREQU/(LGW_XTAL_FREQU/fsk_rx_dr), 2*fsk_sync_word_size, fsk_sync_word);
 			break;
 		
 		default:
@@ -911,6 +1012,8 @@ int lgw_start(void) {
 	uint8_t cal_cmd;
 	uint16_t cal_time;
 	uint8_t cal_status;
+	
+	uint64_t fsk_sync_word_reg;
 	
 	if (lgw_is_started == true) {
 		DEBUG_MSG("Note: LoRa concentrator already started, restarting it now\n");
@@ -954,7 +1057,7 @@ int lgw_start(void) {
 	cal_cmd |= 0x20; /* Bit 5: 0: SX1257, 1: SX1255 */
 	#endif
 	
-	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1))
+	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1) || (CFG_BRD_KERLINK433 == 1) || (CFG_BRD_CISCO433 == 1) || (CFG_BRD_CISCO470 == 1) || (CFG_BRD_CISCO780 == 1))
 	cal_cmd |= 0x00; /* Bit 6-7: Board type 0: ref, 1: FPGA, 3: board X */
 	cal_time = 2300; /* measured between 2.1 and 2.2 sec, because 1 TX only */
 	#elif (CFG_BRD_NANO868 == 1)
@@ -1117,6 +1220,11 @@ int lgw_start(void) {
 	
 	/* configure FSK modem (IF9) */
 	lgw_reg_w(LGW_IF_FREQ_9, IF_HZ_TO_REG(if_freq[9])); /* FSK modem, default 0 */
+	lgw_reg_w(LGW_FSK_PSIZE, fsk_sync_word_size-1);
+	lgw_reg_w(LGW_FSK_TX_PSIZE, fsk_sync_word_size-1);
+	fsk_sync_word_reg = fsk_sync_word << (8 * (8 - fsk_sync_word_size));
+	lgw_reg_w(LGW_FSK_REF_PATTERN_LSB, (uint32_t)(0xFFFFFFFF & fsk_sync_word_reg));
+	lgw_reg_w(LGW_FSK_REF_PATTERN_MSB, (uint32_t)(0xFFFFFFFF & (fsk_sync_word_reg >> 32)));
 	if (if_enable[9] == true) {
 		lgw_reg_w(LGW_FSK_RADIO_SELECT, if_rf_chain[9]);
 		lgw_reg_w(LGW_FSK_BR_RATIO,LGW_XTAL_FREQU/fsk_rx_dr); /* setting the dividing ratio for datarate */
@@ -1398,7 +1506,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 			p->bandwidth = fsk_rx_bw;
 			p->datarate = fsk_rx_dr;
 			p->coderate = CR_UNDEFINED;
-			timestamp_correction = 0; // TODO: implement FSK timestamp correction
+			timestamp_correction = ((uint32_t)680000 / fsk_rx_dr) - 20;
 			
 			/* RSSI correction */
 			p->rssi -= RSSI_FSK_BIAS;
@@ -1618,6 +1726,13 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[14] = 0;
 		buff[15] = 0;
 		
+		/* LSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55 */
+		if (pkt_data.bandwidth == BW_500KHZ) {
+			buff[2] |= 0x01; /* Enlarge filter for 500kHz BW */
+		} else {
+			buff[2] &= 0xFE;
+		}
+		
 	} else if (pkt_data.modulation == MOD_FSK) {
 		/* metadata 7, modulation type, radio chain selection and TX power */
 		buff[7] = (0x20 & (pkt_data.rf_chain << 5)) | 0x10 | (0x0F & pow_index); /* bit 4 is 1 -> FSK modulation */
@@ -1628,12 +1743,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[9] = pkt_data.f_dev;
 		
 		/* metadata 10, payload size */
-		buff[10] = pkt_data.size + 1; /* add a byte to encode payload length in the packet */
-		/* TODO: handle fixed packet length */
+		buff[10] = pkt_data.size; 
 		/* TODO: how to handle 255 bytes packets ?!? */
 		
 		/* metadata 11, packet mode, CRC, encoding */
-		buff[11] = (pkt_data.no_crc?0:0x02); /* always in fixed length packet mode, no DC-free encoding, CCITT CRC if CRC is not disabled  */
+		buff[11] = 0x01 | (pkt_data.no_crc?0:0x02) | (0x02 << 2); /* always in variable length packet mode, whitening, and CCITT CRC if CRC is not disabled  */
 		
 		/* metadata 12 & 13, FSK preamble size */
 		if (pkt_data.preamble == 0) { /* if not explicit, use LoRa MAC preamble size */
@@ -1655,6 +1769,9 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		++transfer_size; /* one more byte to transfer to the TX modem */
 		++payload_offset; /* start the payload with one more byte of offset */
 		
+		/* LSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55*/
+		buff[2] &= 0xFE; /* Always use narrow band for FSK (force LSB to 0) */
+		
 	} else {
 		DEBUG_MSG("ERROR: INVALID TX MODULATION..\n");
 		return LGW_HAL_ERROR;
@@ -1664,9 +1781,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	memcpy((void *)(buff + payload_offset), (void *)(pkt_data.payload), pkt_data.size);
 	
 	/* reset TX command flags */
-	lgw_reg_w(LGW_TX_TRIG_IMMEDIATE, 0);
-	lgw_reg_w(LGW_TX_TRIG_DELAYED, 0);
-	lgw_reg_w(LGW_TX_TRIG_GPS, 0);
+	lgw_abort_tx();
 	
 	/* put metadata + payload in the TX data buffer */
 	lgw_reg_w(LGW_TX_DATA_BUF_ADDR, 0);
@@ -1725,6 +1840,17 @@ int lgw_status(uint8_t select, uint8_t *code) {
 		return LGW_HAL_ERROR;
 	}
 	
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+int lgw_abort_tx(void) {
+	int i;
+	
+	i = lgw_reg_w(LGW_TX_TRIG_ALL, 0);
+	
+	if (i == LGW_REG_SUCCESS) return LGW_HAL_SUCCESS;
+	else return LGW_HAL_ERROR;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */

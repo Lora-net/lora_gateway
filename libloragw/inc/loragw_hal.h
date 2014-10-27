@@ -56,9 +56,9 @@ Maintainer: Sylvain Miermont
 /* to use array parameters, declare a local const and use 'rf_chain' as index */
 #if (CFG_BAND_FULL == 1)
 	#if (CFG_RADIO_1257 == 1)
-		#define LGW_RF_RX_LOWFREQ	{ 862000000, 862000000}	/* lower limit of the usable band in RX for each radio */
+		#define LGW_RF_RX_LOWFREQ	{ 778000000, 778000000}	/* lower limit of the usable band in RX for each radio */
 		#define LGW_RF_RX_UPFREQ	{1020000000,1020000000}	/* upper limit of the usable band in RX for each radio */
-		#define LGW_RF_TX_LOWFREQ	{ 862000000, 862000000}	/* lower limit of the usable band in TX for each radio */
+		#define LGW_RF_TX_LOWFREQ	{ 778000000, 778000000}	/* lower limit of the usable band in TX for each radio */
 		#define LGW_RF_TX_UPFREQ	{1020000000,1020000000}	/* upper limit of the usable band in TX for each radio */
 	#elif (CFG_RADIO_1255 == 1)
 		#define LGW_RF_RX_LOWFREQ	{ 400000000, 400000000}
@@ -86,6 +86,11 @@ Maintainer: Sylvain Miermont
 	#define LGW_RF_RX_UPFREQ	{ 434790000, 434790000}
 	#define LGW_RF_TX_LOWFREQ	{ 433050000, 433050000}
 	#define LGW_RF_TX_UPFREQ	{ 434790000, 434790000}
+#elif (CFG_BAND_780 == 1)
+	#define LGW_RF_RX_LOWFREQ	{ 779000000, 779000000}
+	#define LGW_RF_RX_UPFREQ	{ 787000000, 787000000}
+	#define LGW_RF_TX_LOWFREQ	{ 779000000, 779000000}
+	#define LGW_RF_TX_UPFREQ	{ 787000000, 787000000}
 #endif
 
 /* type of if_chain + modem */
@@ -136,9 +141,12 @@ Maintainer: Sylvain Miermont
 #if (CFG_BRD_NANO868 == 1)
 	#define LGW_RF_TX_ENABLE	{ true, true}	/* both radio A and B are usable in TX */
 	#define LGW_RF_CLKOUT		{ true, true}	/* both radios have clkout enabled */
-#elif ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1))
+#elif ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1) || (CFG_BRD_KERLINK433 == 1))
 	#define LGW_RF_TX_ENABLE	{ true,false}	/* radio B TX output is disconnected */
 	#define LGW_RF_CLKOUT		{false, true}	/* radio A clkout disabled for spur optimization */
+#elif ((CFG_BRD_CISCO433 == 1) || (CFG_BRD_CISCO470 == 1) || (CFG_BRD_CISCO780 == 1))
+	#define LGW_RF_TX_ENABLE	{ true,false}	/* radio B TX output is disconnected */
+	#define LGW_RF_CLKOUT		{ true, true}	/* Do not know */
 /* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
 #elif (CFG_BRD_MYBOARD == 1)
 */
@@ -237,11 +245,13 @@ struct lgw_conf_rxrf_s {
 @brief Configuration structure for an IF chain
 */
 struct lgw_conf_rxif_s {
-	bool		enable;		/*!> enable or disable that IF chain */
-	uint8_t		rf_chain;	/*!> to which RF chain is that IF chain associated */
-	int32_t		freq_hz;	/*!> center frequ of the IF chain, relative to RF chain frequency */
-	uint8_t		bandwidth;	/*!> RX bandwidth, 0 for default */
-	uint32_t	datarate;	/*!> RX datarate, 0 for default */
+	bool		enable;			/*!> enable or disable that IF chain */
+	uint8_t		rf_chain;		/*!> to which RF chain is that IF chain associated */
+	int32_t		freq_hz;		/*!> center frequ of the IF chain, relative to RF chain frequency */
+	uint8_t		bandwidth;		/*!> RX bandwidth, 0 for default */
+	uint32_t	datarate;		/*!> RX datarate, 0 for default */
+	uint8_t		sync_word_size;	/*!> size of FSK sync word (number of bytes, 0 for default) */
+	uint64_t	sync_word;		/*!> FSK sync word (ALIGN RIGHT, eg. 0xC194C1) */
 };
 
 /**
@@ -343,6 +353,12 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data);
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 */
 int lgw_status(uint8_t select, uint8_t *code);
+
+/**
+@brief Abort a currently scheduled or ongoing TX
+@return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
+*/
+int lgw_abort_tx(void);
 
 /**
 @brief Return value of internal counter when latest event (eg GPS pulse) was captured

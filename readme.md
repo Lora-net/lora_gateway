@@ -56,9 +56,19 @@ gateways as receivers.
 3. Changelog
 -------------
 
+### v1.6.0 ###
+
+* Fixed bug with 250kHz and 500 kHz TX filtering
+* Adjusted FSK timestamp calibration in RX for accurate RX/TX alignment
+* Added lgw_abort_tx() function to stop a TX at any time (scheduled or ongoing)
+* Added support for user-settable FSK sync word (same for RX and TX)
+* Added support for the Chinese 780 MHz band
+* Added support for Kerlink 433 gateway
+* Added support for Cisco 433, 470 & 780 MHz concentrators boards
+
 ### v1.5.0 ###
 
-* Adding option to discriminate LoRa MAC networks from private LoRa networks at PHY level.
+* Adding option to isolate public LoRa MAC networks at PHY level.
 
 ### v1.4.1 ###
 

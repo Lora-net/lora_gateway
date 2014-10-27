@@ -58,6 +58,10 @@ Maintainer: Sylvain Miermont
 	#define	F_RX_0	433500000
 	#define	F_RX_1	434500000
 	#define	F_TX	434000000
+#elif (CFG_BAND_780 == 1)
+	#define	F_RX_0	780500000
+	#define	F_RX_1	781500000
+	#define	F_TX	781000000
 #endif
 
 /* -------------------------------------------------------------------------- */

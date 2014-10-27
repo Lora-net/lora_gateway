@@ -391,7 +391,8 @@ const struct lgw_reg_s loregs[LGW_TOTALREGS] = {
 	{2,94,0,0,4,1,0},		/* DATA_MNGT_STATUS */
 	{2,95,0,0,5,1,0},		/* DATA_MNGT_CPT_FRAME_ALLOCATED */
 	{2,96,0,0,5,1,0},		/* DATA_MNGT_CPT_FRAME_FINISHED */
-	{2,97,0,0,5,1,0}		/* DATA_MNGT_CPT_FRAME_READEN */
+	{2,97,0,0,5,1,0},		/* DATA_MNGT_CPT_FRAME_READEN */
+	{1,33,0,0,8,0,0}		/* TX_TRIG_ALL (alias) */
 };
 
 /* -------------------------------------------------------------------------- */

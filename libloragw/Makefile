@@ -74,6 +74,13 @@ else ifeq ($(CFG_BAND),eu433)
   else
     $(error The selected radio(s) cannot work in the selected band.)
   endif
+else ifeq ($(CFG_BAND),cn780)
+  ifeq ($(CFG_RADIO),sx1257)
+    CFG_BAND_MSG := China 780 MHz band
+    CFG_BAND_OPT := CFG_BAND_780
+  else
+    $(error The selected radio(s) cannot work in the selected band.)
+  endif
 else
   $(warning [Warning] No frequency band selected, full radio capability assumed.)
   CFG_BAND_MSG := Full range supported by the radio(s)
@@ -92,6 +99,18 @@ else ifeq ($(CFG_BRD),ref_1301_433)
 else ifeq ($(CFG_BRD),kerlink_868)
   CFG_BRD_MSG := Kerlink LoRa 868MHz gateway
   CFG_BRD_OPT := CFG_BRD_KERLINK868
+else ifeq ($(CFG_BRD),kerlink_433)
+  CFG_BRD_MSG := Kerlink LoRa 433MHz gateway
+  CFG_BRD_OPT := CFG_BRD_KERLINK433
+else ifeq ($(CFG_BRD),cisco_433)
+  CFG_BRD_MSG := Cisco LoRa 433MHz gateway
+  CFG_BRD_OPT := CFG_BRD_CISCO433
+else ifeq ($(CFG_BRD),cisco_470)
+  CFG_BRD_MSG := Cisco LoRa 470MHz gateway
+  CFG_BRD_OPT := CFG_BRD_CISCO470
+else ifeq ($(CFG_BRD),cisco_780)
+  CFG_BRD_MSG := Cisco LoRa 780MHz gateway
+  CFG_BRD_OPT := CFG_BRD_CISCO780
 else
   $(info [Info] No specific board selected.)
   CFG_BRD_MSG := None
