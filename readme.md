@@ -56,6 +56,17 @@ gateways as receivers.
 3. Changelog
 -------------
 
+### v1.7.0 ###
+
+* Added TX “start delay” compensation for timestamp mode (fix time window alignment issue at low SF and/or high BW)
+* Added adaptive narrowband/wideband TX filtering for LoRa
+* Added a command-line option to set CR in util_tx_test
+* Added notes for TX “start delay” in immediate and triggered mode
+
+/!\ warning: due to start delay compensation being implemented, TX that were 
+previously 1.5ms late will be sent on time. At low datarate, this is not an 
+issue. At high LoRa data rate (and FSK) you might have to adjust your timing.
+
 ### v1.6.0 ###
 
 * Fixed bug with 250kHz and 500 kHz TX filtering

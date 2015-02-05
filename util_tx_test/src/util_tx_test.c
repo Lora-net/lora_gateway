@@ -79,17 +79,18 @@ static void sig_handler(int sigio) {
 /* describe command line options */
 void usage(void) {
 	printf("*** Library version information ***\n%s\n\n", lgw_version_info());
-	printf( "Available options:\n");
-	printf( " -h print this help\n");
-	printf( " -f <float> target frequency in MHz\n");
-	printf( " -s <uint> Spreading Factor\n");
-	printf( " -b <uint> Modulation bandwidth in kHz\n");
-	printf( " -p <int> RF power (dBm)\n");
-	printf( " -r <uint> LoRa preamble length (symbols)\n");
-	printf( " -z <uint> payload size (bytes)\n");
-	printf( " -t <uint> pause between packets (ms)\n");
-	printf( " -x <int> numbers of times the sequence is repeated (-1 for continuous)\n");
-	printf( " -i send packet using inverted modulation polarity \n");
+	printf("Available options:\n");
+	printf(" -h print this help\n");
+	printf(" -f <float> target frequency in MHz\n");
+	printf(" -b <uint>  LoRa bandwidth in kHz [125, 250, 500]\n");
+	printf(" -s <uint>  LoRa Spreading Factor [7-12]\n");
+	printf(" -c <uint>  LoRa Coding Rate [1-4]\n");
+	printf(" -p <int>   RF power (dBm)\n");
+	printf(" -r <uint>  LoRa preamble length (symbols)\n");
+	printf(" -z <uint>  payload size (bytes, <256)\n");
+	printf(" -t <uint>  pause between packets (ms)\n");
+	printf(" -x <int>   nb of times the sequence is repeated (-1 loop until stopped)\n");
+	printf(" -i         send packet using inverted modulation polarity\n");
 }
 
 /* -------------------------------------------------------------------------- */
@@ -109,6 +110,7 @@ int main(int argc, char **argv)
 	/* application parameters */
 	uint32_t f_target = lowfreq[RF_CHAIN]/2 + upfreq[RF_CHAIN]/2; /* target frequency */
 	int sf = 10; /* SF10 by default */
+	int cr = 1; /* CR1 aka 4/5 by default */
 	int bw = 125; /* 125kHz bandwidth by default */
 	int pow = 14; /* 14 dBm by default */
 	int preamb = 8; /* 8 symbol preamble by default */
@@ -127,7 +129,7 @@ int main(int argc, char **argv)
 	uint16_t cycle_count = 0;
 	
 	/* parse command line options */
-	while ((i = getopt (argc, argv, "hf:s:b:p:r:z:t:x:i")) != -1) {
+	while ((i = getopt (argc, argv, "hf:b:s:c:p:r:z:t:x:i")) != -1) {
 		switch (i) {
 			case 'h':
 				usage();
@@ -145,6 +147,17 @@ int main(int argc, char **argv)
 				}
 				break;
 			
+			case 'b': /* -b <int> Modulation bandwidth in kHz */
+				i = sscanf(optarg, "%i", &xi);
+				if ((i != 1) || ((xi != 125)&&(xi != 250)&&(xi != 500))) {
+					MSG("ERROR: invalid LoRa bandwidth\n");
+					usage();
+					return EXIT_FAILURE;
+				} else {
+					bw = xi;
+				}
+				break;
+			
 			case 's': /* -s <int> Spreading Factor */
 				i = sscanf(optarg, "%i", &xi);
 				if ((i != 1) || (xi < 7) || (xi > 12)) {
@@ -156,14 +169,14 @@ int main(int argc, char **argv)
 				}
 				break;
 			
-			case 'b': /* -b <int> Modulation bandwidth in kHz */
+			case 'c': /* -c <int> Coding Rate */
 				i = sscanf(optarg, "%i", &xi);
-				if ((i != 1) || ((xi != 125)&&(xi != 250)&&(xi != 500))) {
-					MSG("ERROR: invalid LoRa bandwidth\n");
+				if ((i != 1) || (xi < 1) || (xi > 4)) {
+					MSG("ERROR: invalid coding rate\n");
 					usage();
 					return EXIT_FAILURE;
 				} else {
-					bw = xi;
+					cr = xi;
 				}
 				break;
 			
@@ -240,7 +253,7 @@ int main(int argc, char **argv)
 		MSG("ERROR: frequency out of authorized band (accounting for modulation bandwidth)\n");
 		return EXIT_FAILURE;
 	}
-	printf("Sending %i packets on %u Hz (BW %i kHz, SF %i, %i bytes payload, %i symbols preamble) at %i dBm, with %i ms between each\n", repeat, f_target, bw, sf, pl_size, preamb, pow, delay);
+	printf("Sending %i packets on %u Hz (BW %i kHz, SF %i, CR %i, %i bytes payload, %i symbols preamble) at %i dBm, with %i ms between each\n", repeat, f_target, bw, sf, cr, pl_size, preamb, pow, delay);
 	
 	/* configure signal handling */
 	sigemptyset(&sigact.sa_mask);
@@ -286,11 +299,19 @@ int main(int argc, char **argv)
 			MSG("ERROR: invalid 'sf' variable\n");
 			return EXIT_FAILURE;
 	}
-	txpkt.coderate = CR_LORA_4_5;
+	switch (cr) {
+		case 1: txpkt.coderate = CR_LORA_4_5; break;
+		case 2: txpkt.coderate = CR_LORA_4_6; break;
+		case 3: txpkt.coderate = CR_LORA_4_7; break;
+		case 4: txpkt.coderate = CR_LORA_4_8; break;
+		default:
+			MSG("ERROR: invalid 'cr' variable\n");
+			return EXIT_FAILURE;
+	}
 	txpkt.invert_pol = invert;
 	txpkt.preamble = preamb;
 	txpkt.size = pl_size;
-	strcpy((char *)txpkt.payload, "TEST**abcdefghijklmnopqrstuvwxyz0123456789" ); /* abc.. is for padding */
+	strcpy((char *)txpkt.payload, "TEST**abcdefghijklmnopqrstuvwxyz#0123456789#ABCDEFGHIJKLMNOPQRSTUVWXYZ#0123456789#abcdefghijklmnopqrstuvwxyz#0123456789#ABCDEFGHIJKLMNOPQRSTUVWXYZ#0123456789#abcdefghijklmnopqrstuvwxyz#0123456789#ABCDEFGHIJKLMNOPQRSTUVWXYZ#0123456789#abcdefghijklmnopqrs#" ); /* abc.. is for padding */
 	
 	/* main loop */
 	cycle_count = 0;

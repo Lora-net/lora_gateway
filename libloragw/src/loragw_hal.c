@@ -1252,7 +1252,7 @@ int lgw_start(void) {
 	wait_ms(1);
 	
 	lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
-	if (read_val != 0x20) {
+	if (read_val != 0x10) {
 		DEBUG_PRINTF("ERROR: AGC FIRMWARE INITIALIZATION FAILURE, STATUS 0x%02X\n", (uint8_t)read_val);
 		return LGW_HAL_ERROR;
 	}
@@ -1286,6 +1286,12 @@ int lgw_start(void) {
 			return LGW_HAL_ERROR;
 		}
 	#endif
+	
+	/* Load Tx freq MSBs (always 3 if f > 768 for SX1257 or f > 384 for SX1255 */
+	lgw_reg_w(LGW_RADIO_SELECT, AGC_CMD_WAIT);
+	wait_ms(1);
+	lgw_reg_w(LGW_RADIO_SELECT, 3);
+	wait_ms(1);
 	
 	/* Load chan_select firmware option */
 	lgw_reg_w(LGW_RADIO_SELECT, AGC_CMD_WAIT);
@@ -1552,6 +1558,7 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	int payload_offset = 0; /* start of the payload content in the databuffer */
 	uint8_t pow_index = 0; /* 4-bit value to set the firmware TX power */
 	uint8_t target_mix_gain = 0; /* used to select the proper I/Q offset correction */
+	uint32_t count_trig; /* timestamp value in trigger mode corrected for TX start delay */
 	
 	/* check if the concentrator is running */
 	if (lgw_is_started == false) {
@@ -1657,10 +1664,15 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 	buff[2] = 0xFF & part_frac; /* Least Significant Byte */
 	
 	/* metadata 3 to 6, timestamp trigger value */
-	buff[3] = 0xFF & (pkt_data.count_us >> 24);
-	buff[4] = 0xFF & (pkt_data.count_us >> 16);
-	buff[5] = 0xFF & (pkt_data.count_us >> 8);
-	buff[6] = 0xFF &  pkt_data.count_us;
+	/* TX state machine must be triggered at T0 - TX_START_DELAY for packet to start being emitted at T0 */
+	if (pkt_data.tx_mode == TIMESTAMPED)
+	{
+		count_trig = pkt_data.count_us - TX_START_DELAY;
+		buff[3] = 0xFF & (count_trig >> 24);
+		buff[4] = 0xFF & (count_trig >> 16);
+		buff[5] = 0xFF & (count_trig >> 8);
+		buff[6] = 0xFF &  count_trig;
+	}
 	
 	/* parameters depending on modulation  */
 	if (pkt_data.modulation == MOD_LORA) {
@@ -1726,11 +1738,11 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[14] = 0;
 		buff[15] = 0;
 		
-		/* LSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55 */
+		/* MSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55 */
 		if (pkt_data.bandwidth == BW_500KHZ) {
-			buff[2] |= 0x01; /* Enlarge filter for 500kHz BW */
+			buff[0] |= 0x80; /* Enlarge filter for 500kHz BW */
 		} else {
-			buff[2] &= 0xFE;
+			buff[0] &= 0x7F;
 		}
 		
 	} else if (pkt_data.modulation == MOD_FSK) {
@@ -1769,8 +1781,8 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		++transfer_size; /* one more byte to transfer to the TX modem */
 		++payload_offset; /* start the payload with one more byte of offset */
 		
-		/* LSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55*/
-		buff[2] &= 0xFE; /* Always use narrow band for FSK (force LSB to 0) */
+		/* MSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55 */
+		buff[0] &= 0x7F; /* Always use narrow band for FSK (force MSB to 0) */
 		
 	} else {
 		DEBUG_MSG("ERROR: INVALID TX MODULATION..\n");
