@@ -56,6 +56,16 @@ gateways as receivers.
 3. Changelog
 -------------
 
+### v2.0.0 ###
+
+* Added support for Kerlink 868 27dBm gateway
+* Updated global_conf.eu868.json (in packet logger) to new LoRaWAN frequency plan
+* Added version numbers to AGC, arbiter and calibration firmware (those versions are checked at startup)
+* Added test_loragw_cal to test radio calibrations
+* Fixed minor bug in error coverage in register read/write functions
+
+/!\ warning: Kerlink 868 27dBm gateway includes a FPGA that MUST be programmed before running any application
+
 ### v1.7.0 ###
 
 * Added TX “start delay” compensation for timestamp mode (fix time window alignment issue at low SF and/or high BW)

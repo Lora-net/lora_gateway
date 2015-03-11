@@ -680,7 +680,7 @@ int lgw_reg_r(uint16_t register_id, int32_t *reg_value) {
 
 /* Point to a register by name and do a burst write */
 int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
-	int spi_stat;
+	int spi_stat = LGW_SPI_SUCCESS;
 	struct lgw_reg_s r;
 	
 	/* check input parameters */
@@ -715,7 +715,7 @@ int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
 	}
 	
 	/* do the burst write */
-	spi_stat = lgw_spi_wb(lgw_spi_target, r.addr, data, size);
+	spi_stat += lgw_spi_wb(lgw_spi_target, r.addr, data, size);
 	
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER BURST WRITE\n");
@@ -729,7 +729,7 @@ int lgw_reg_wb(uint16_t register_id, uint8_t *data, uint16_t size) {
 
 /* Point to a register by name and do a burst read */
 int lgw_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size) {
-	int spi_stat;
+	int spi_stat = LGW_SPI_SUCCESS;
 	struct lgw_reg_s r;
 	
 	/* check input parameters */
@@ -758,7 +758,7 @@ int lgw_reg_rb(uint16_t register_id, uint8_t *data, uint16_t size) {
 	}
 	
 	/* do the burst read */
-	spi_stat = lgw_spi_rb(lgw_spi_target, r.addr, data, size);
+	spi_stat += lgw_spi_rb(lgw_spi_target, r.addr, data, size);
 	
 	if (spi_stat != LGW_SPI_SUCCESS) {
 		DEBUG_MSG("ERROR: SPI ERROR DURING REGISTER BURST READ\n");

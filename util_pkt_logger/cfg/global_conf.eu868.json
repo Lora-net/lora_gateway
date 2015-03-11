@@ -2,41 +2,75 @@
 	"SX1301_conf": {
 		"radio_0": {
 			"enable": true,
-			"freq": 868200000
+			"freq": 867500000
+		},
+		"radio_1": {
+			"enable": true,
+			"freq": 868500000
 		},
 		"chan_multiSF_0": {
-			/* LoRa MAC channel, 125kHz, all SF, 868.1 MHz */
+			/* Lora MAC channel, 125kHz, all SF, 868.1 MHz */
 			"enable": true,
-			"radio": 0,
-			"if": -100000
+			"radio": 1,
+			"if": -400000
 		},
 		"chan_multiSF_1": {
-			/* LoRa MAC channel, 125kHz, all SF, 868.3 MHz */
+			/* Lora MAC channel, 125kHz, all SF, 868.3 MHz */
 			"enable": true,
-			"radio": 0,
-			"if": 100000
+			"radio": 1,
+			"if": -200000
 		},
 		"chan_multiSF_2": {
-			/* LoRa MAC channel, 125kHz, all SF, 868.5 MHz */
+			/* Lora MAC channel, 125kHz, all SF, 868.5 MHz */
+			"enable": true,
+			"radio": 1,
+			"if": 0
+		},
+		"chan_multiSF_3": {
+			/* Lora MAC channel, 125kHz, all SF, 867.1 MHz */
 			"enable": true,
 			"radio": 0,
-			"if": 300000
+			"if": -400000
+		},
+		"chan_multiSF_4": {
+			/* Lora MAC channel, 125kHz, all SF, 867.3 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": -200000
+		},
+		"chan_multiSF_5": {
+			/* Lora MAC channel, 125kHz, all SF, 867.5 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": 0
+		},
+		"chan_multiSF_6": {
+			/* Lora MAC channel, 125kHz, all SF, 867.7 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": 200000
+		},
+		"chan_multiSF_7": {
+			/* Lora MAC channel, 125kHz, all SF, 867.9 MHz */
+			"enable": true,
+			"radio": 0,
+			"if": 400000
 		},
 		"chan_Lora_std": {
-			/* LoRa MAC channel, 250kHz, SF7, 868.3 MHz */
+			/* Lora MAC channel, 250kHz, SF7, 868.3 MHz */
 			"enable": true,
-			"radio": 0,
-			"if": 100000,
+			"radio": 1,
+			"if": -200000,
 			"bandwidth": 250000,
 			"spread_factor": 7
 		},
 		"chan_FSK": {
-			/* FSK 100kbps channel, 868.3 MHz */
+			/* FSK 50kbps channel, 868.8 MHz */
 			"enable": true,
-			"radio": 0,
-			"if": 100000,
-			"bandwidth": 250000,
-			"datarate": 100000
+			"radio": 1,
+			"if": 300000,
+			"datarate": 50000,
+			"freq_deviation": 25000
 		}
 	},
 	"gateway_conf": {

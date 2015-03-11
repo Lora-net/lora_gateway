@@ -51,9 +51,12 @@ Maintainer: Sylvain Miermont
 
 #define		MCU_ARB		0
 #define		MCU_AGC		1
-
 #define		MCU_ARB_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
 #define		MCU_AGC_FW_BYTE		8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
+#define		FW_VERSION_ADDR		0x20 /* Address of firmware version in data memory */
+#define		FW_VERSION_CAL		2 /* Expected version of calibration firmware */
+#define		FW_VERSION_AGC		4 /* Expected version of AGC firmware */
+#define		FW_VERSION_ARB		1 /* Expected version of arbiter firmware */
 
 #define		TX_METADATA_NB		16
 #define		RX_METADATA_NB		16
@@ -112,6 +115,8 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #elif (CFG_BRD_1301REF868 == 1)
 	#define		RSSI_BOARD_OFFSET		166.0
 #elif (CFG_BRD_KERLINK868 == 1)
+	#define		RSSI_BOARD_OFFSET		167.0
+#elif (CFG_BRD_KERLINK868_27DBM == 1)
 	#define		RSSI_BOARD_OFFSET		165.0
 #elif (CFG_BRD_1301REF433 == 1)
 	#define		RSSI_BOARD_OFFSET		176.5
@@ -257,6 +262,26 @@ typedef struct {
 		{	3,	3,	12,	22},\
 		{	3,	3,	13,	23},\
 		{	3,	3,	15,	24},\
+	}; /* calibrated */
+#elif (CFG_BRD_KERLINK868_27DBM == 1)
+	#define	CUSTOM_TX_POW_TABLE		1
+	const tx_pow_t tx_pow_table[TX_POW_LUT_SIZE] = {\
+		{	0,	3,	 8, -5},\
+		{	0,	3,	11,	-1},\
+		{	0,	3,	12,  0},\
+		{	1,	3,	 9,  7},\
+		{	1,	3,	10,  8},\
+		{	1,	3,	12, 11},\
+		{	1,	3,	13, 13},\
+		{	1,	3,	14, 14},\
+		{	2,	3,	 9, 16},\
+		{	2,	3,	11, 19},\
+		{	3,	3,   7, 21},\
+		{	3,	3,	 8, 23},\
+		{	3,	3,	 9, 24},\
+		{	3,	3,	10, 26},\
+		{	3,	3,	11, 27},\
+		{	3,	3,	12, 28},\
 	}; /* calibrated */
 #elif (CFG_BRD_KERLINK433 == 1)
 	#define	CUSTOM_TX_POW_TABLE		1
@@ -413,6 +438,8 @@ typedef struct {
 	#define		CFG_BRD_STR		"ref_1301_433"
 #elif (CFG_BRD_KERLINK868 == 1)
 	#define		CFG_BRD_STR		"kerlink_868"
+#elif (CFG_BRD_KERLINK868_27DBM == 1)
+	#define		CFG_BRD_STR		"kerlink_868_27dbm"
 #elif (CFG_BRD_KERLINK433 == 1)
 	#define		CFG_BRD_STR		"kerlink_433"
 #elif (CFG_BRD_CISCO433 == 1)
@@ -1008,7 +1035,7 @@ int lgw_start(void) {
 	uint8_t radio_select;
 	int32_t read_val;
 	uint8_t load_val;
-	
+	uint8_t fw_version;
 	uint8_t cal_cmd;
 	uint16_t cal_time;
 	uint8_t cal_status;
@@ -1043,6 +1070,18 @@ int lgw_start(void) {
 	setup_sx125x(0, rf_rx_freq[0]);
 	setup_sx125x(1, rf_rx_freq[1]);
 	
+	/* gives AGC control of GPIOs to enable Tx external digital filter */
+	lgw_reg_w(LGW_GPIO_MODE,31); /* Set all GPIOs as output */
+	lgw_reg_w(LGW_GPIO_SELECT_OUTPUT,2); 
+	
+	/* GPIOs table :
+	DGPIO0 -> N/A
+	DGPIO1 -> N/A
+	DGPIO2 -> N/A
+	DGPIO3 -> TX digital filter ON
+	DGPIO4 -> TX ON
+	*/
+	
 	/* select calibration command */
 	cal_cmd = 0;
 	cal_cmd |= rf_enable[0] ? 0x01 : 0x00; /* Bit 0: Calibrate Rx IQ mismatch compensation on radio A */
@@ -1057,7 +1096,7 @@ int lgw_start(void) {
 	cal_cmd |= 0x20; /* Bit 5: 0: SX1257, 1: SX1255 */
 	#endif
 	
-	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1) || (CFG_BRD_KERLINK433 == 1) || (CFG_BRD_CISCO433 == 1) || (CFG_BRD_CISCO470 == 1) || (CFG_BRD_CISCO780 == 1))
+	#if ((CFG_BRD_1301REF868 == 1) || (CFG_BRD_1301REF433 == 1) || (CFG_BRD_KERLINK868 == 1) || (CFG_BRD_KERLINK868_27DBM == 1) || (CFG_BRD_KERLINK433 == 1) || (CFG_BRD_CISCO433 == 1) || (CFG_BRD_CISCO470 == 1) || (CFG_BRD_CISCO780 == 1))
 	cal_cmd |= 0x00; /* Bit 6-7: Board type 0: ref, 1: FPGA, 3: board X */
 	cal_time = 2300; /* measured between 2.1 and 2.2 sec, because 1 TX only */
 	#elif (CFG_BRD_NANO868 == 1)
@@ -1073,6 +1112,16 @@ int lgw_start(void) {
 	lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL,0); /* gives to AGC MCU the control of the radios */
 	lgw_reg_w(LGW_RADIO_SELECT,cal_cmd); /* send calibration configuration word */
 	lgw_reg_w(LGW_MCU_RST_1,0);
+	
+	/* Check firmware version */
+	lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, FW_VERSION_ADDR);
+	lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
+	fw_version = (uint8_t)read_val;
+	if (fw_version != FW_VERSION_CAL) {
+		printf("ERROR: Version of calibration firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_CAL);
+		return -1;
+	}
+	
 	lgw_reg_w(LGW_PAGE_REG,3); /* Calibration will start on this condition as soon as MCU can talk to concentrator registers */
 	lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL,0); /* Give control of concentrator registers to MCU */
 	
@@ -1248,6 +1297,22 @@ int lgw_start(void) {
 	lgw_reg_w(LGW_MCU_RST_0, 0);
 	lgw_reg_w(LGW_MCU_RST_1, 0);
 	
+	/* Check firmware version */
+	lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, FW_VERSION_ADDR);
+	lgw_reg_r(LGW_DBG_AGC_MCU_RAM_DATA, &read_val);
+	fw_version = (uint8_t)read_val;
+	if (fw_version != FW_VERSION_AGC) {
+		DEBUG_PRINTF("ERROR: Version of AGC firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_AGC);
+		return LGW_HAL_ERROR;
+	}
+	lgw_reg_w(LGW_DBG_ARB_MCU_RAM_ADDR, FW_VERSION_ADDR);
+	lgw_reg_r(LGW_DBG_ARB_MCU_RAM_DATA, &read_val);
+	fw_version = (uint8_t)read_val;
+	if (fw_version != FW_VERSION_ARB) {
+		DEBUG_PRINTF("ERROR: Version of arbiter firmware not expected, actual:%d expected:%d\n", fw_version, FW_VERSION_ARB);
+		return LGW_HAL_ERROR;
+	}
+	
 	DEBUG_MSG("Info: Initialising AGC firmware...\n");
 	wait_ms(1);
 	
@@ -1258,7 +1323,6 @@ int lgw_start(void) {
 	}
 	
 	/* Update Tx gain LUT and start AGC */
-	
 	#if (CUSTOM_TX_POW_TABLE == 1)
 		DEBUG_MSG("Info: loading custom TX gain table\n");
 		for(i=0; i<TX_POW_LUT_SIZE; ++i) {
@@ -1313,17 +1377,6 @@ int lgw_start(void) {
 	
 	/* enable GPS event capture */
 	lgw_reg_w(LGW_GPS_EN,1);
-	
-	/* enable LEDs */
-	lgw_reg_w(LGW_GPIO_MODE,31);
-	// lgw_reg_w(LGW_GPIO_SELECT_OUTPUT,0); /* default 0 */
-	/* LED table :
-	DGPIO0 -> packets waiting in the RX FIFO, ready to be fetched
-	DGPIO1 -> multi-SF RX LoRa modems activity (channels 0 to 7)
-	DGPIO2 -> stand-alone RX LoRa modem activity (channel 8))
-	DGPIO3 -> FSK RX modem activity (channel 9)
-	DGPIO4 -> TX modem active (either LoRa or FSK)
-	*/
 	
 	lgw_is_started = true;
 	return LGW_HAL_SUCCESS;
@@ -1739,10 +1792,12 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
 		buff[15] = 0;
 		
 		/* MSB of RF frequency is now used in AGC firmware to implement large/narrow filtering in SX1257/55 */
+		buff[0] &= 0x3F; /* Unset 2 MSBs of frequency code */
 		if (pkt_data.bandwidth == BW_500KHZ) {
-			buff[0] |= 0x80; /* Enlarge filter for 500kHz BW */
-		} else {
-			buff[0] &= 0x7F;
+			buff[0] |= 0x80; /* Set MSB bit to enlarge analog filter for 500kHz BW */
+		}
+        else if (pkt_data.bandwidth == BW_125KHZ){
+			buff[0] |= 0x40; /* Set MSB-1 bit to enable digital filter for 125kHz BW */
 		}
 		
 	} else if (pkt_data.modulation == MOD_FSK) {

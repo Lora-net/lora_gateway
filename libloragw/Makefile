@@ -99,6 +99,9 @@ else ifeq ($(CFG_BRD),ref_1301_433)
 else ifeq ($(CFG_BRD),kerlink_868)
   CFG_BRD_MSG := Kerlink LoRa 868MHz gateway
   CFG_BRD_OPT := CFG_BRD_KERLINK868
+else ifeq ($(CFG_BRD),kerlink_868_27dbm)
+  CFG_BRD_MSG := Kerlink LoRa 868MHz gateway with 27dBm capability
+  CFG_BRD_OPT := CFG_BRD_KERLINK868_27DBM
 else ifeq ($(CFG_BRD),kerlink_433)
   CFG_BRD_MSG := Kerlink LoRa 433MHz gateway
   CFG_BRD_OPT := CFG_BRD_KERLINK433
@@ -132,14 +135,14 @@ endif
 ### linking options
 
 ifeq ($(CFG_SPI),native)
-  LIBS := -lloragw -lrt
+  LIBS := -lloragw -lrt -lm
 else ifeq ($(CFG_SPI),ftdi)
-  LIBS := -lloragw -lrt -lmpsse
+  LIBS := -lloragw -lrt -lmpsse -lm
 endif
 
 ### general build targets
 
-all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal test_loragw_gps
+all: libloragw.a test_loragw_spi test_loragw_reg test_loragw_hal test_loragw_gps test_loragw_cal
 
 clean:
 	rm -f libloragw.a
@@ -225,6 +228,9 @@ test_loragw_hal: tst/test_loragw_hal.c libloragw.a
 	$(CC) $(CFLAGS) -L. $< -o $@ $(LIBS)
 
 test_loragw_gps: tst/test_loragw_gps.c libloragw.a
+	$(CC) $(CFLAGS) -L. $< -o $@ $(LIBS)
+
+test_loragw_cal: tst/test_loragw_cal.c libloragw.a src/cal_fw.var
 	$(CC) $(CFLAGS) -L. $< -o $@ $(LIBS)
 
 ### EOF
