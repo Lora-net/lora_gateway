@@ -4,8 +4,9 @@ APP_NAME := util_pkt_logger
 
 ### Environment constants 
 
-LGW_PATH := ../libloragw
-CROSS_COMPILE :=
+LGW_PATH ?= ../libloragw
+ARCH ?=
+CROSS_COMPILE ?=
 
 ### External constant definitions
 # must get library build option to know if mpsse must be linked or not
@@ -35,12 +36,11 @@ endif
 
 ### General build targets
 
-all: $(APP_NAME) global_conf.json
+all: $(APP_NAME)
 
 clean:
 	rm -f obj/*.o
 	rm -f $(APP_NAME)
-	find . -name global_conf.json -exec rm -i {} \;
 
 ### HAL library (do no force multiple library rebuild even with 'make -B')
 
@@ -58,25 +58,6 @@ $(LGW_PATH)/libloragw.a: $(LGW_INC)
 
 obj/parson.o: src/parson.c inc/parson.h
 	$(CC) -c $(CFLAGS) $< -o $@
-
-### Select the proper configuration JSON for the program
-
-ifeq ($(CFG_BAND),eu868)
-global_conf.json: cfg/global_conf.eu868.json
-	cp $< $@
-else ifeq ($(CFG_BAND),us915)
-global_conf.json: cfg/global_conf.us915.json
-	cp $< $@
-else ifeq ($(CFG_BAND),cn470)
-global_conf.json: cfg/global_conf.cn470.json
-	cp $< $@
-else ifeq ($(CFG_BAND),eu433)
-global_conf.json: cfg/global_conf.eu433.json
-	cp $< $@
-else
-global_conf.json: cfg/global_conf.empty.json
-	cp $< $@
-endif
 
 ### Main program compilation and assembly
 

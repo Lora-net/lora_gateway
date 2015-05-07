@@ -4,8 +4,9 @@ APP_NAME := util_spi_stress
 
 ### Environment constants 
 
-LGW_PATH := ../libloragw
-CROSS_COMPILE :=
+LGW_PATH ?= ../libloragw
+ARCH ?=
+CROSS_COMPILE ?=
 
 ### External constant definitions
 # must get library build option to know if mpsse must be linked or not

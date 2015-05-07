@@ -17,7 +17,7 @@ Once compiled all the code is contained in the libloragw.a file that will be
 statically linked (ie. integrated in the final executable).
 
 The library must be configured by editing the library.cfg file to set target
-chip, radio, SPI interface, etc.
+platform, SPI interface, etc.
 
 The library also comes with a bunch of basic tests programs that are used to 
 test the different sub-modules of the library.
@@ -28,33 +28,46 @@ test the different sub-modules of the library.
 Those programs are included in the project to provide examples on how to use 
 the HAL library, and to help the system builder test different parts of it.
 
-### 2.1. util_band_survey ###
-
-This software is used to scan the RF band and measure background RSSI and some
-measurement of interferer pattern.
-
-### 2.2. util_pkt_logger ###
+### 2.1. util_pkt_logger ###
 
 This software is used to set up a LoRa concentrator using a JSON configuration
 file and then record all the packets received in a log file, indefinitely, until
 the user stops the application.
 
-### 2.3. util_spi_stress ###
+### 2.2. util_spi_stress ###
 
 This software is used to check the reliability of the link between the host
 platform (on which the program is run) and the LoRa concentrator register file
 that is the interface through which all interaction with the LoRa concentrator
 happens.
 
-### 2.4. util_tx_test ###
+### 2.3. util_tx_test ###
 
 This software is used to send test packets with a LoRa concentrator. The packets
 contain little information, on no protocol (ie. MAC address) information but
 can be used to assess the functionality of a gateway downlink using other
 gateways as receivers.
 
+### 2.4. util_tx_continuous ###
+
+This software is used to set LoRa concentrator in Tx continuous mode,
+for spectral measurement.
+
 3. Changelog
 -------------
+
+### v3.0.0 ###
+
+* Added new HAL function lgw_board_setconf() to configure board/concentrator specific parameters: network type (LoRa public or private), concentrator clock source. Note: those parameters are not any more set from the library.cfg file configuration (CFG_NET, CFG_BRD), and should be passed at initialization by the application.
+* Added new HAL function lgw_txgain_setconf() to configure concentrator TX gain table. It can now be dynamically set by the application at initialization time.
+* Changed HAL function lgw_rxrf_setconf(), it will now also configure the radio type (CFG_RADIO has been removed from library.cfg), the RSSI offset to be used for this radio and if TX is enabled or not on this radio.
+* Added support of IoT Starter Kit platform, which is now the default board.
+* Added util_tx_continuous utility for gateway TX power calibration and spectral emission measurements/qualification.
+* Removed CFG_BAND configuration from library.cfg. Band configuration is done by application and passed dynamically at initialization time.
+* Updated makefiles to allow cross compilation from environment variable (ARCH, CROSS_COMPILE).
+
+** WARNING: **
+** Known issue: a problem with carrier leakage calibration has been seen on 433MHz boards. **
 
 ### v2.0.0 ###
 

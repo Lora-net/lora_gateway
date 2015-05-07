@@ -89,6 +89,8 @@ int parse_SX1301_configuration(const char * conf_file) {
 	int i;
 	const char conf_obj[] = "SX1301_conf";
 	char param_name[32]; /* used to generate variable parameter names */
+	const char *str; /* used to store string value from JSON object */
+	struct lgw_conf_board_s boardconf;
 	struct lgw_conf_rxrf_s rfconf;
 	struct lgw_conf_rxif_s ifconf;
 	JSON_Value *root_val;
@@ -111,7 +113,29 @@ int parse_SX1301_configuration(const char * conf_file) {
 	} else {
 		MSG("INFO: %s does contain a JSON object named %s, parsing SX1301 parameters\n", conf_file, conf_obj);
 	}
-	
+
+	/* set board configuration */
+	memset(&boardconf, 0, sizeof boardconf); /* initialize configuration structure */
+	val = json_object_get_value(conf, "lorawan_public"); /* fetch value (if possible) */
+	if (json_value_get_type(val) == JSONBoolean) {
+		boardconf.lorawan_public = (bool)json_value_get_boolean(val);
+	} else {
+		MSG("WARNING: Data type for lorawan_public seems wrong, please check\n");
+		boardconf.lorawan_public = false;
+	}
+	val = json_object_get_value(conf, "clksrc"); /* fetch value (if possible) */
+	if (json_value_get_type(val) == JSONNumber) {
+		boardconf.clksrc = (uint8_t)json_value_get_number(val);
+	} else {
+		MSG("WARNING: Data type for clksrc seems wrong, please check\n");
+		boardconf.clksrc = 0;
+	}
+	MSG("INFO: lorawan_public %d, clksrc %d\n", boardconf.lorawan_public, boardconf.clksrc);
+	/* all parameters parsed, submitting configuration to the HAL */
+        if (lgw_board_setconf(boardconf) != LGW_HAL_SUCCESS) {
+                MSG("WARNING: Failed to configure board\n");
+	}
+
 	/* set configuration for RF chains */
 	for (i = 0; i < LGW_RF_CHAIN_NB; ++i) {
 		memset(&rfconf, 0, sizeof(rfconf)); /* initialize configuration structure */
@@ -132,9 +156,27 @@ int parse_SX1301_configuration(const char * conf_file) {
 		if (rfconf.enable == false) { /* radio disabled, nothing else to parse */
 			MSG("INFO: radio %i disabled\n", i);
 		} else  { /* radio enabled, will parse the other parameters */
-			sprintf(param_name, "radio_%i.freq", i);
+			snprintf(param_name, sizeof param_name, "radio_%i.freq", i);
 			rfconf.freq_hz = (uint32_t)json_object_dotget_number(conf, param_name);
-			MSG("INFO: radio %i enabled, center frequency %u\n", i, rfconf.freq_hz);
+			snprintf(param_name, sizeof param_name, "radio_%i.rssi_offset", i);
+			rfconf.rssi_offset = (float)json_object_dotget_number(conf, param_name);
+			snprintf(param_name, sizeof param_name, "radio_%i.type", i);
+			str = json_object_dotget_string(conf, param_name);
+			if (!strncmp(str, "SX1255", 6)) {
+				rfconf.type = LGW_RADIO_TYPE_SX1255;
+			} else if (!strncmp(str, "SX1257", 6)) {
+				rfconf.type = LGW_RADIO_TYPE_SX1257;
+			} else {
+				MSG("WARNING: invalid radio type: %s (should be SX1255 or SX1257)\n", str);
+			}
+			snprintf(param_name, sizeof param_name, "radio_%i.tx_enable", i);
+			val = json_object_dotget_value(conf, param_name);
+			if (json_value_get_type(val) == JSONBoolean) {
+				rfconf.tx_enable = (bool)json_value_get_boolean(val);
+			} else {
+				rfconf.tx_enable = false;
+			}
+			MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable);
 		}
 		/* all parameters parsed, submitting configuration to the HAL */
 		if (lgw_rxrf_setconf(i, rfconf) != LGW_HAL_SUCCESS) {

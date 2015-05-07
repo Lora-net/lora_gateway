@@ -29,6 +29,7 @@ Maintainer: Sylvain Miermont
 #include <stdio.h>		/* printf */
 #include <string.h>		/* memset */
 #include <signal.h>		/* sigaction */
+#include <unistd.h>		/* getopt access */
 
 #include "loragw_hal.h"
 #include "loragw_reg.h"
@@ -42,27 +43,7 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
-#if ((CFG_BAND_868 == 1) || ((CFG_BAND_FULL == 1) && (CFG_RADIO_1257 == 1)))
-	#define	F_RX_0	868500000
-	#define	F_RX_1	869500000
-	#define	F_TX	869000000
-#elif (CFG_BAND_915 == 1)
-	#define	F_RX_0	914500000
-	#define	F_RX_1	915500000
-	#define	F_TX	915000000
-#elif ((CFG_BAND_470 == 1) || ((CFG_BAND_FULL == 1) && (CFG_RADIO_1255 == 1)))
-	#define	F_RX_0	471500000
-	#define	F_RX_1	472500000
-	#define	F_TX	472000000
-#elif (CFG_BAND_433 == 1)
-	#define	F_RX_0	433500000
-	#define	F_RX_1	434500000
-	#define	F_TX	434000000
-#elif (CFG_BAND_780 == 1)
-	#define	F_RX_0	780500000
-	#define	F_RX_1	781500000
-	#define	F_TX	781000000
-#endif
+#define DEFAULT_RSSI_OFFSET 0.0
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -86,13 +67,26 @@ static void sig_handler(int sigio) {
 	}
 }
 
+/* describe command line options */
+void usage(void) {
+	printf("Library version information: %s\n", lgw_version_info());
+	printf( "Available options:\n");
+	printf( " -h print this help\n");
+	printf( " -a <float> Radio A RX frequency in MHz\n");
+	printf( " -b <float> Radio B RX frequency in MHz\n");
+	printf( " -t <float> Radio TX frequency in MHz\n");
+	printf( " -r <int> Radio type (SX1255:1255, SX1257:1257)\n");
+	printf( " -k <int> Concentrator clock source (0: radio_A, 1: radio_B(default))\n");
+}
+
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
 
-int main()
+int main(int argc, char **argv)
 {
 	struct sigaction sigact; /* SIGQUIT&SIGINT&SIGTERM signal handling */
 	
+	struct lgw_conf_board_s boardconf;
 	struct lgw_conf_rxrf_s rfconf;
 	struct lgw_conf_rxif_s ifconf;
 	
@@ -102,11 +96,77 @@ int main()
 	
 	int i, j;
 	int nb_pkt;
+	uint32_t fa = 0, fb = 0, ft = 0;
+	enum lgw_radio_type_e radio_type = LGW_RADIO_TYPE_NONE;
+	uint8_t clocksource = 1; /* Radio B is source by default */
 	
 	uint32_t tx_cnt = 0;
 	unsigned long loop_cnt = 0;
 	uint8_t status_var = 0;
-	
+	double xd = 0.0;
+	int xi = 0;
+
+	/* parse command line options */
+	while ((i = getopt (argc, argv, "ha:b:t:r:k:")) != -1) {
+		switch (i) {
+			case 'h':
+				usage();
+				return -1;
+				break;
+			case 'a': /* <float> Radio A RX frequency in MHz */
+				sscanf(optarg, "%lf", &xd);
+				fa = (uint32_t)((xd*1e6) + 0.5); /* .5 Hz offset to get rounding instead of truncating */
+				break;
+			case 'b': /* <float> Radio B RX frequency in MHz */
+				sscanf(optarg, "%lf", &xd);
+				fb = (uint32_t)((xd*1e6) + 0.5); /* .5 Hz offset to get rounding instead of truncating */
+				break;
+			case 't': /* <float> Radio TX frequency in MHz */
+				sscanf(optarg, "%lf", &xd);
+				ft = (uint32_t)((xd*1e6) + 0.5); /* .5 Hz offset to get rounding instead of truncating */
+				break;
+			case 'r': /* <int> Radio type (1255, 1257) */
+				sscanf(optarg, "%i", &xi);
+				switch (xi) {
+					case 1255:
+						radio_type = LGW_RADIO_TYPE_SX1255;
+						break;
+					case 1257:
+						radio_type = LGW_RADIO_TYPE_SX1257;
+						break;
+					default:
+						printf("ERROR: invalid radio type\n");
+						usage();
+						return -1;
+				}
+				break;
+			case 'k': /* <int> Concentrator clock source (Radio A or Radio B) */
+				sscanf(optarg, "%i", &xi);
+				clocksource = (uint8_t)xi;
+				break;
+			default:
+				printf("ERROR: argument parsing\n");
+				usage();
+				return -1;
+		}
+	}
+
+	/* check input parameters */
+	if ((fa == 0) || (fb == 0) || (ft == 0)) {
+		printf("ERROR: missing frequency input parameter:\n");
+		printf("  Radio A RX: %u\n", fa);
+		printf("  Radio B RX: %u\n", fb);
+		printf("  Radio TX: %u\n", ft);
+		usage();
+		return -1;
+	}
+
+	if (radio_type == LGW_RADIO_TYPE_NONE) {
+		printf("ERROR: missing radio type parameter:\n");
+		usage();
+		return -1;
+	}
+
 	/* configure signal handling */
 	sigemptyset(&sigact.sa_mask);
 	sigact.sa_flags = 0;
@@ -114,26 +174,39 @@ int main()
 	sigaction(SIGQUIT, &sigact, NULL);
 	sigaction(SIGINT, &sigact, NULL);
 	sigaction(SIGTERM, &sigact, NULL);
-	
+
 	/* beginning of LoRa concentrator-specific code */
 	printf("Beginning of test for loragw_hal.c\n");
-	
+
 	printf("*** Library version information ***\n%s\n\n", lgw_version_info());
-	
+
+	/* set configuration for board */
+	memset(&boardconf, 0, sizeof(boardconf));
+
+	boardconf.lorawan_public = true;
+	boardconf.clksrc = clocksource;
+	lgw_board_setconf(boardconf);
+
 	/* set configuration for RF chains */
 	memset(&rfconf, 0, sizeof(rfconf));
-	
+
 	rfconf.enable = true;
-	rfconf.freq_hz = F_RX_0;
+	rfconf.freq_hz = fa;
+	rfconf.rssi_offset = DEFAULT_RSSI_OFFSET;
+	rfconf.type = radio_type;
+	rfconf.tx_enable = true;
 	lgw_rxrf_setconf(0, rfconf); /* radio A, f0 */
-	
+
 	rfconf.enable = true;
-	rfconf.freq_hz = F_RX_1;
+	rfconf.freq_hz = fb;
+	rfconf.rssi_offset = DEFAULT_RSSI_OFFSET;
+	rfconf.type = radio_type;
+	rfconf.tx_enable = false;
 	lgw_rxrf_setconf(1, rfconf); /* radio B, f1 */
-	
+
 	/* set configuration for LoRa multi-SF channels (bandwidth cannot be set) */
 	memset(&ifconf, 0, sizeof(ifconf));
-	
+
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = -300000;
@@ -158,7 +231,6 @@ int main()
 	ifconf.datarate = DR_LORA_MULTI;
 	lgw_rxif_setconf(3, ifconf); /* chain 3: LoRa 125kHz, all SF, on f1 + 0.3 MHz */
 	
-	#if (LGW_MULTI_NB >= 8)
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
 	ifconf.freq_hz = -100000;
@@ -182,7 +254,6 @@ int main()
 	ifconf.freq_hz = 100000;
 	ifconf.datarate = DR_LORA_MULTI;
 	lgw_rxif_setconf(7, ifconf); /* chain 7: LoRa 125kHz, all SF, on f1 + 0.1 MHz */
-	#endif
 	
 	/* set configuration for LoRa 'stand alone' channel */
 	memset(&ifconf, 0, sizeof(ifconf));
@@ -203,9 +274,8 @@ int main()
 	lgw_rxif_setconf(9, ifconf); /* chain 9: FSK 64kbps, on f1 MHz */
 	
 	/* set configuration for TX packet */
-	
 	memset(&txpkt, 0, sizeof(txpkt));
-	txpkt.freq_hz = F_TX;
+	txpkt.freq_hz = ft;
 	txpkt.tx_mode = IMMEDIATE;
 	txpkt.rf_power = 10;
 	txpkt.modulation = MOD_LORA;

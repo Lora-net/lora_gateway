@@ -37,8 +37,10 @@ functionality.
 This is the main module and contains the high level functions to configure and
 use the LoRa concentrator:
 
+* lgw_board_setconf, to set the configuration of the concentrator 
 * lgw_rxrf_setconf, to set the configuration of the radio channels
 * lgw_rxif_setconf, to set the configuration of the IF+modem channels
+* lgw_txgain_setconf, to set the configuration of the concentrator gain table
 * lgw_start, to apply the set configuration to the hardware and start it
 * lgw_stop, to stop the hardware
 * lgw_receive, to fetch packets if any was received
@@ -178,34 +180,13 @@ messages if the DEBUG_xxx is set to 1 in library.cfg
 The other settings available in library.cfg are:
 
 * CFG_SPI configures how the link between the host and the concentrator chip 
- is done.
+  is done. It is highly recommended to use native SPI instead of FTDI when possible
+  for permormance reasons.
+  Note: when using native SPI on linux host, ensure that the /dev/spidevX.X
+  which is to be opened on your host is the same as the one defined in
+  libloragw/src/loragw_spi.native.c
 
-* CFG_CHIP configures what the exact model of chip is, because there are small 
-  differences in capabilities between the 'normal' SX1301 production chip, and 
-  the FPGA-based version.
-
-* CFG_RADIO configures what chips are used for radios. Only the SX125x are 
-  supported for now, but other radios could be supported if drivers are added.
-
-* CFG_BAND configures frequency band limits. If you plan to use you system in 
-  a specific band, the library can be used to enforced minimum & maximum 
-  frequencies for RX and TX, preventing illegal 'out of band' emissions even in 
-  case of bug in your program.
-  Other band-specific rules (eg. TX power, channel spacing, dwell time, hopping 
-  rules) are *NOT* enforced by the libloragw library and must be enforced in 
-  your program.
-  To disable band-specific limits, use the 'full' setting that will allow all 
-  frequencies supported by the radio.
-
-* CFG_BRD configures board misc parameters and calibration values.
-  The RSSI reported by the library when a packet is received, and the TX power 
-  specified when is packet is sent, very significantly with the board and 
-  components use around the radios (eg. external PA and LNA, filters, RF 
-  switches, etc). A limited number of specific board designs have been 
-  calibrated by Semtech, if you don't find the board you used, ask Semtech 
-  which available setting will give the most accurate results. If you use 
-  elements such as external filters, long cables and antennas with gain, you 
-  will have to offset their effect in your application.
+* CFG_BRD configures board misc parameters.
 
 ### 3.3. Building procedures ###
 

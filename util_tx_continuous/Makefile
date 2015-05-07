@@ -1,11 +1,12 @@
 ### Application-specific constants
 
-APP_NAME := util_band_survey
+APP_NAME := util_tx_continuous
 
 ### Environment constants 
 
-LGW_PATH := ../libloragw
-CROSS_COMPILE :=
+LGW_PATH ?= ../libloragw
+ARCH ?=
+CROSS_COMPILE ?=
 
 ### External constant definitions
 # must get library build option to know if mpsse must be linked or not
@@ -57,7 +58,7 @@ $(LGW_PATH)/libloragw.a: $(LGW_INC)
 
 ### Main program compilation and assembly
 
-obj/$(APP_NAME).o: src/$(APP_NAME).c $(LGW_INC) src/rssi_fw.var
+obj/$(APP_NAME).o: src/$(APP_NAME).c $(LGW_INC) src/cal_tx_fw.var src/util_fw.var
 	$(CC) -c $(CFLAGS) -I$(LGW_PATH)/inc $< -o $@
 
 $(APP_NAME): obj/$(APP_NAME).o $(LGW_PATH)/libloragw.a

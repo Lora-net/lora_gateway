@@ -45,10 +45,8 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
-#define		RF_CHAIN				0	/* we'll use radio A only */
-
-const uint32_t lowfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_LOWFREQ;
-const uint32_t upfreq[LGW_RF_CHAIN_NB] = LGW_RF_TX_UPFREQ;
+#define		RF_CHAIN		0	/* we'll use radio A only */
+#define		DEFAULT_RSSI_OFFSET 	0.0
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES (GLOBAL) ------------------------------------------- */
@@ -81,12 +79,13 @@ void usage(void) {
 	printf("*** Library version information ***\n%s\n\n", lgw_version_info());
 	printf("Available options:\n");
 	printf(" -h print this help\n");
+	printf(" -r <int>   radio type (SX1255:1255, SX1257:1257)\n");
 	printf(" -f <float> target frequency in MHz\n");
 	printf(" -b <uint>  LoRa bandwidth in kHz [125, 250, 500]\n");
 	printf(" -s <uint>  LoRa Spreading Factor [7-12]\n");
 	printf(" -c <uint>  LoRa Coding Rate [1-4]\n");
 	printf(" -p <int>   RF power (dBm)\n");
-	printf(" -r <uint>  LoRa preamble length (symbols)\n");
+	printf(" -l <uint>  LoRa preamble length (symbols)\n");
 	printf(" -z <uint>  payload size (bytes, <256)\n");
 	printf(" -t <uint>  pause between packets (ms)\n");
 	printf(" -x <int>   nb of times the sequence is repeated (-1 loop until stopped)\n");
@@ -104,11 +103,9 @@ int main(int argc, char **argv)
 	/* user entry parameters */
 	int xi = 0;
 	double xd = 0.0;
-	uint32_t f_min;
-	uint32_t f_max;
 	
 	/* application parameters */
-	uint32_t f_target = lowfreq[RF_CHAIN]/2 + upfreq[RF_CHAIN]/2; /* target frequency */
+	uint32_t f_target = 0; /* target frequency - invalid default value, has to be specified by user */
 	int sf = 10; /* SF10 by default */
 	int cr = 1; /* CR1 aka 4/5 by default */
 	int bw = 125; /* 125kHz bandwidth by default */
@@ -120,7 +117,10 @@ int main(int argc, char **argv)
 	bool invert = false;
 	
 	/* RF configuration (TX fail if RF chain is not enabled) */
-	const struct lgw_conf_rxrf_s rfconf = {true, lowfreq[RF_CHAIN]};
+	enum lgw_radio_type_e radio_type = LGW_RADIO_TYPE_NONE;
+	uint8_t clocksource = 1; /* Radio B is source by default */
+	struct lgw_conf_board_s boardconf;
+	struct lgw_conf_rxrf_s rfconf;
 	
 	/* allocate memory for packet sending */
 	struct lgw_pkt_tx_s txpkt; /* array containing 1 outbound packet + metadata */
@@ -129,7 +129,7 @@ int main(int argc, char **argv)
 	uint16_t cycle_count = 0;
 	
 	/* parse command line options */
-	while ((i = getopt (argc, argv, "hf:b:s:c:p:r:z:t:x:i")) != -1) {
+	while ((i = getopt (argc, argv, "hif:b:s:c:p:l:z:t:x:r:k")) != -1) {
 		switch (i) {
 			case 'h':
 				usage();
@@ -191,7 +191,7 @@ int main(int argc, char **argv)
 				}
 				break;
 			
-			case 'r': /* -r <uint> preamble length (symbols) */
+			case 'l': /* -r <uint> preamble length (symbols) */
 				i = sscanf(optarg, "%i", &xi);
 				if ((i != 1) || (xi < 6)) {
 					MSG("ERROR: preamble length must be >6 symbols \n");
@@ -234,11 +234,32 @@ int main(int argc, char **argv)
 					repeat = xi;
 				}
 				break;
-			
+
+			case 'r': /* <int> Radio type (1255, 1257) */
+				sscanf(optarg, "%i", &xi);
+				switch (xi) {
+					case 1255:
+						radio_type = LGW_RADIO_TYPE_SX1255;
+						break;
+					case 1257:
+						radio_type = LGW_RADIO_TYPE_SX1257;
+						break;
+					default:
+						printf("ERROR: invalid radio type\n");
+						usage();
+						return EXIT_FAILURE;
+				}
+				break;
+
 			case 'i': /* -i send packet using inverted modulation polarity */
 				invert = true;
 				break;
-			
+
+			case 'k': /* <int> Concentrator clock source (Radio A or Radio B) */
+				sscanf(optarg, "%i", &xi);
+				clocksource = (uint8_t)xi;
+				break;
+
 			default:
 				MSG("ERROR: argument parsing\n");
 				usage();
@@ -247,10 +268,12 @@ int main(int argc, char **argv)
 	}
 	
 	/* check parameter sanity */
-	f_min = lowfreq[RF_CHAIN] + (500 * bw);
-	f_max = upfreq[RF_CHAIN] - (500 * bw);
-	if ((f_target < f_min) || (f_target > f_max)) {
-		MSG("ERROR: frequency out of authorized band (accounting for modulation bandwidth)\n");
+	if (f_target == 0) {
+		MSG("ERROR: frequency parameter not set, please use -f option to specify it.\n");
+		return EXIT_FAILURE;
+	}
+	if (radio_type == LGW_RADIO_TYPE_NONE) {
+		MSG("ERROR: radio type parameter not properly set, please use -r option to specify it.\n");
 		return EXIT_FAILURE;
 	}
 	printf("Sending %i packets on %u Hz (BW %i kHz, SF %i, CR %i, %i bytes payload, %i symbols preamble) at %i dBm, with %i ms between each\n", repeat, f_target, bw, sf, cr, pl_size, preamb, pow, delay);
@@ -264,7 +287,23 @@ int main(int argc, char **argv)
 	sigaction(SIGTERM, &sigact, NULL);
 	
 	/* starting the concentrator */
+	/* board config */
+	memset(&boardconf, 0, sizeof(boardconf));
+
+	boardconf.lorawan_public = true;
+	boardconf.clksrc = clocksource;
+	lgw_board_setconf(boardconf);
+
+	/* RF config */
+	memset(&rfconf, 0, sizeof(rfconf));
+
+	rfconf.enable = true;
+	rfconf.freq_hz = f_target;
+	rfconf.rssi_offset = DEFAULT_RSSI_OFFSET;
+	rfconf.type = radio_type;
+	rfconf.tx_enable = true;
 	lgw_rxrf_setconf(RF_CHAIN, rfconf);
+
 	i = lgw_start();
 	if (i == LGW_HAL_SUCCESS) {
 		MSG("INFO: concentrator started, packet can be sent\n");

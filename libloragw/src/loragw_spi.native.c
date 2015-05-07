@@ -31,7 +31,9 @@ Maintainer: Sylvain Miermont
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
 
+#include "loragw_gpio.h"
 #include "loragw_spi.h"
+#include "loragw_hal.h"
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE MACROS ------------------------------------------------------- */
@@ -53,8 +55,8 @@ Maintainer: Sylvain Miermont
 #define READ_ACCESS		0x00
 #define WRITE_ACCESS	0x80
 #define SPI_SPEED		8000000
-//#define SPI_DEV_PATH	"/dev/spidev0.0"
-#define SPI_DEV_PATH	"/dev/spidev32766.0"
+#define SPI_DEV_PATH	"/dev/spidev0.0"
+//#define SPI_DEV_PATH	"/dev/spidev32766.0"
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
@@ -65,24 +67,24 @@ int lgw_spi_open(void **spi_target_ptr) {
 	int dev;
 	int a=0, b=0;
 	int i;
-	
+
 	/* check input variables */
 	CHECK_NULL(spi_target_ptr); /* cannot be null, must point on a void pointer (*spi_target_ptr can be null) */
-	
+
 	/* allocate memory for the device descriptor */
 	spi_device = malloc(sizeof(int));
 	if (spi_device == NULL) {
 		DEBUG_MSG("ERROR: MALLOC FAIL\n");
 		return LGW_SPI_ERROR;
 	}
-	
+
 	/* open SPI device */
 	dev = open(SPI_DEV_PATH, O_RDWR);
 	if (dev < 0) {
-		DEBUG_MSG("SPI port fail to open\n");
+		DEBUG_PRINTF("ERROR: failed to open SPI device %s\n", SPI_DEV_PATH);
 		return LGW_SPI_ERROR;
 	}
-	
+
 	/* setting SPI mode to 'mode 0' */
 	i = SPI_MODE_0;
 	a = ioctl(dev, SPI_IOC_WR_MODE, &i);
@@ -93,7 +95,7 @@ int lgw_spi_open(void **spi_target_ptr) {
 		free(spi_device);
 		return LGW_SPI_ERROR;
 	}
-	
+
 	/* setting SPI max clk (in Hz) */
 	i = SPI_SPEED;
 	a = ioctl(dev, SPI_IOC_WR_MAX_SPEED_HZ, &i);
@@ -104,7 +106,7 @@ int lgw_spi_open(void **spi_target_ptr) {
 		free(spi_device);
 		return LGW_SPI_ERROR;
 	}
-	
+
 	/* setting SPI to MSB first */
 	i = 0;
 	a = ioctl(dev, SPI_IOC_WR_LSB_FIRST, &i);
@@ -115,9 +117,9 @@ int lgw_spi_open(void **spi_target_ptr) {
 		free(spi_device);
 		return LGW_SPI_ERROR;
 	}
-	
+
 	/* setting SPI to 8 bits per word */
-	i = 0; 
+	i = 0;
 	a = ioctl(dev, SPI_IOC_WR_BITS_PER_WORD, &i);
 	b = ioctl(dev, SPI_IOC_RD_BITS_PER_WORD, &i);
 	if ((a < 0) || (b < 0)) {
@@ -125,10 +127,34 @@ int lgw_spi_open(void **spi_target_ptr) {
 		close(dev);
 		return LGW_SPI_ERROR;
 	}
-	
+
+	/*  If a RESET PIN has been defined, we reset the SX1301 */
+#ifdef LGW_SX1301_RESET_PIN
+	if( lgw_gpio_export(LGW_SX1301_RESET_PIN) < 0 ){
+		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
+		return LGW_SPI_ERROR;
+	}
+	if( lgw_gpio_direction(LGW_SX1301_RESET_PIN, LGW_GPIO_OUT) < 0 ){
+		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
+		return LGW_SPI_ERROR;
+	}
+	if( lgw_gpio_write(LGW_SX1301_RESET_PIN, LGW_GPIO_HIGH) < 0 ){
+		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
+		return LGW_SPI_ERROR;
+	}
+	if( lgw_gpio_write(LGW_SX1301_RESET_PIN, LGW_GPIO_LOW) < 0 ){
+		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
+		return LGW_SPI_ERROR;
+	}
+	if( lgw_gpio_direction(LGW_SX1301_RESET_PIN, LGW_GPIO_IN) < 0 ){
+		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
+		return LGW_SPI_ERROR;
+	}
+#endif
+
 	*spi_device = dev;
 	*spi_target_ptr = (void *)spi_device;
-	DEBUG_MSG("Note: SPI port opened and configured ok\n");	
+	DEBUG_MSG("Note: SPI port opened and configured ok\n");
 	return LGW_SPI_SUCCESS;
 }
 
@@ -138,15 +164,22 @@ int lgw_spi_open(void **spi_target_ptr) {
 int lgw_spi_close(void *spi_target) {
 	int spi_device;
 	int a;
-	
+
 	/* check input variables */
 	CHECK_NULL(spi_target);
-	
+
 	/* close file & deallocate file descriptor */
 	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
 	a = close(spi_device);
 	free(spi_target);
-	
+
+#ifdef LGW_SX1301_RESET_PIN
+	if( lgw_gpio_unexport(LGW_SX1301_RESET_PIN) < 0 ){
+		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
+		return LGW_SPI_ERROR;
+	}
+#endif
+
 	/* determine return code */
 	if (a < 0) {
 		DEBUG_MSG("ERROR: SPI PORT FAILED TO CLOSE\n");
@@ -165,19 +198,19 @@ int lgw_spi_w(void *spi_target, uint8_t address, uint8_t data) {
 	uint8_t out_buf[2];
 	struct spi_ioc_transfer k;
 	int a;
-	
+
 	/* check input variables */
 	CHECK_NULL(spi_target);
 	if ((address & 0x80) != 0) {
 		DEBUG_MSG("WARNING: SPI address > 127\n");
 	}
-	
+
 	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
-	
+
 	/* prepare frame to be sent */
 	out_buf[0] = WRITE_ACCESS | (address & 0x7F);
 	out_buf[1] = data;
-	
+
 	/* I/O transaction */
 	memset(&k, 0, sizeof(k)); /* clear k */
 	k.tx_buf = (unsigned long) out_buf;
@@ -186,7 +219,7 @@ int lgw_spi_w(void *spi_target, uint8_t address, uint8_t data) {
 	k.cs_change = 1;
 	k.bits_per_word = 8;
 	a = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
-	
+
 	/* determine return code */
 	if (a != 2) {
 		DEBUG_MSG("ERROR: SPI WRITE FAILURE\n");
@@ -206,20 +239,20 @@ int lgw_spi_r(void *spi_target, uint8_t address, uint8_t *data) {
 	uint8_t in_buf[ARRAY_SIZE(out_buf)];
 	struct spi_ioc_transfer k;
 	int a;
-	
+
 	/* check input variables */
 	CHECK_NULL(spi_target);
 	if ((address & 0x80) != 0) {
 		DEBUG_MSG("WARNING: SPI address > 127\n");
 	}
 	CHECK_NULL(data);
-	
+
 	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
-	
+
 	/* prepare frame to be sent */
 	out_buf[0] = READ_ACCESS | (address & 0x7F);
 	out_buf[1] = 0x00;
-	
+
 	/* I/O transaction */
 	memset(&k, 0, sizeof(k)); /* clear k */
 	k.tx_buf = (unsigned long) out_buf;
@@ -227,7 +260,7 @@ int lgw_spi_r(void *spi_target, uint8_t address, uint8_t *data) {
 	k.len = ARRAY_SIZE(out_buf);
 	k.cs_change = 1;
 	a = ioctl(spi_device, SPI_IOC_MESSAGE(1), &k);
-	
+
 	/* determine return code */
 	if (a != 2) {
 		DEBUG_MSG("ERROR: SPI READ FAILURE\n");
@@ -249,7 +282,7 @@ int lgw_spi_wb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 	int size_to_do, chunk_size, offset;
 	int byte_transfered = 0;
 	int i;
-	
+
 	/* check input parameters */
 	CHECK_NULL(spi_target);
 	if ((address & 0x80) != 0) {
@@ -260,13 +293,13 @@ int lgw_spi_wb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 		DEBUG_MSG("ERROR: BURST OF NULL LENGTH\n");
 		return LGW_SPI_ERROR;
 	}
-	
+
 	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
-	
+
 	/* prepare command byte */
 	command = WRITE_ACCESS | (address & 0x7F);
 	size_to_do = size;
-	
+
 	/* I/O transaction */
 	memset(&k, 0, sizeof(k)); /* clear k */
 	k[0].tx_buf = (unsigned long) &command;
@@ -282,7 +315,7 @@ int lgw_spi_wb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 		DEBUG_PRINTF("BURST WRITE: to trans %d # chunk %d # transferred %d \n", size_to_do, chunk_size, byte_transfered);
 		size_to_do -= chunk_size; /* subtract the quantity of data already transferred */
 	}
-	
+
 	/* determine return code */
 	if (byte_transfered != size) {
 		DEBUG_MSG("ERROR: SPI BURST WRITE FAILURE\n");
@@ -303,7 +336,7 @@ int lgw_spi_rb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 	int size_to_do, chunk_size, offset;
 	int byte_transfered = 0;
 	int i;
-	
+
 	/* check input parameters */
 	CHECK_NULL(spi_target);
 	if ((address & 0x80) != 0) {
@@ -314,13 +347,13 @@ int lgw_spi_rb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 		DEBUG_MSG("ERROR: BURST OF NULL LENGTH\n");
 		return LGW_SPI_ERROR;
 	}
-	
+
 	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
-	
+
 	/* prepare command byte */
 	command = READ_ACCESS | (address & 0x7F);
 	size_to_do = size;
-	
+
 	/* I/O transaction */
 	memset(&k, 0, sizeof(k)); /* clear k */
 	k[0].tx_buf = (unsigned long) &command;
@@ -336,7 +369,7 @@ int lgw_spi_rb(void *spi_target, uint8_t address, uint8_t *data, uint16_t size) 
 		DEBUG_PRINTF("BURST READ: to trans %d # chunk %d # transferred %d \n", size_to_do, chunk_size, byte_transfered);
 		size_to_do -= chunk_size;  /* subtract the quantity of data already transferred */
 	}
-	
+
 	/* determine return code */
 	if (byte_transfered != size) {
 		DEBUG_MSG("ERROR: SPI BURST READ FAILURE\n");
