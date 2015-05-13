@@ -105,7 +105,11 @@ obj/loragw_gps.o: src/loragw_gps.c inc/loragw_gps.h inc/config.h
 
 ### static library
 
+ifeq ($(CFG_SPI),native)
 libloragw.a: obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o obj/loragw_gpio.o
+else ifeq ($(CFG_SPI),ftdi)
+libloragw.a: obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
+endif
 	$(AR) rcs $@ $^
 
 ### test programs
