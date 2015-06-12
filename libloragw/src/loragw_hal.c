@@ -1188,6 +1188,9 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 	}
 	CHECK_NULL(pkt_data);
 
+	/* Initialize buffer */
+	memset (buff, 0, sizeof buff);
+
 	/* iterate max_pkt times at most */
 	for (nb_pkt_fetch = 0; nb_pkt_fetch < max_pkt; ++nb_pkt_fetch) {
 
@@ -1214,14 +1217,13 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 		/* copy payload to result struct */
 		memcpy((void *)p->payload, (void *)buff, sz);
 
-		/* get back info from configuration so that application doesn't have to keep track of it */
-		p->rf_chain = (uint8_t)if_rf_chain[p->if_chain];
-		p->freq_hz = (uint32_t)((int32_t)rf_rx_freq[p->rf_chain] + if_freq[p->if_chain]);
-
 		/* process metadata */
 		p->if_chain = buff[sz+0];
 		ifmod = ifmod_config[p->if_chain];
 		DEBUG_PRINTF("[%d %d]\n", p->if_chain, ifmod);
+
+		p->rf_chain = (uint8_t)if_rf_chain[p->if_chain];
+		p->freq_hz = (uint32_t)((int32_t)rf_rx_freq[p->rf_chain] + if_freq[p->if_chain]);
 		p->rssi = (float)buff[sz+5] + rf_rssi_offset[p->rf_chain];
 
 		if ((ifmod == IF_LORA_MULTI) || (ifmod == IF_LORA_STD)) {

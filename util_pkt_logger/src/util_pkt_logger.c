@@ -300,8 +300,9 @@ int parse_gateway_configuration(const char * conf_file) {
 	JSON_Value *root_val;
 	JSON_Object *root = NULL;
 	JSON_Object *conf = NULL;
+	const char *str; /* pointer to sub-strings in the JSON data */
 	unsigned long long ull = 0;
-	
+
 	/* try to parse JSON */
 	root_val = json_parse_file_with_comments(conf_file);
 	root = json_value_get_object(root_val);
@@ -316,12 +317,15 @@ int parse_gateway_configuration(const char * conf_file) {
 	} else {
 		MSG("INFO: %s does contain a JSON object named %s, parsing gateway parameters\n", conf_file, conf_obj);
 	}
-	
+
 	/* getting network parameters (only those necessary for the packet logger) */
-	sscanf(json_object_dotget_string(conf, "gateway_ID"), "%llx", &ull);
-	lgwm = ull;
-	MSG("INFO: gateway MAC address is configured to %016llX\n", ull);
-	
+	str = json_object_get_string(conf, "gateway_ID");
+	if (str != NULL) {
+		sscanf(str, "%llx", &ull);
+		lgwm = ull;
+		MSG("INFO: gateway MAC address is configured to %016llX\n", ull);
+	}
+
 	json_value_free(root_val);
 	return 0;
 }

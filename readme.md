@@ -56,6 +56,16 @@ for spectral measurement.
 3. Changelog
 -------------
 
+### v3.0.2 ###
+
+* Bugfix: Fixed frequency calculation on uplinks: lgw_receive() function was using a variable to calculate the frequency before it was initialized with correct value. 
+* Bugfix: util_pkt_logger crashed when no gateway_ID is not defined in global_conf.json
+
+### v3.0.1 ###
+
+* Bufgix: Fixed util_tx_continuous compilation issue, by adding empty obj directory
+* Bugfix: Fixed HAL compilation issue for CFG_SPI=ftdi, removed dependency on loragw_gpio in this case
+
 ### v3.0.0 ###
 
 * Added new HAL function lgw_board_setconf() to configure board/concentrator specific parameters: network type (LoRa public or private), concentrator clock source. Note: those parameters are not any more set from the library.cfg file configuration (CFG_NET, CFG_BRD), and should be passed at initialization by the application.
