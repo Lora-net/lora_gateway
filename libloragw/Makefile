@@ -24,15 +24,6 @@ else
   $(error No SPI physical layer selected, check ../target.cfg file.)
 endif
 
-ifeq ($(CFG_BRD),iot_sk_1301_868)
-  CFG_BRD_MSG := SX1301 IoT Starter Kit board with SX1257 radios, 868 MHz filters
-  CFG_BRD_OPT := CFG_BRD_1301IOTSK868
-else
-  $(info [Info] No specific board selected.)
-  CFG_BRD_MSG := None
-  CFG_BRD_OPT := CFG_BRD_NONE
-endif
-
 ### linking options
 
 ifeq ($(CFG_SPI),native)
@@ -65,9 +56,6 @@ inc/config.h: ../VERSION library.cfg
   # SPI interface
 	@echo "SPI interface     : $(CFG_SPI_MSG)"
 	@echo "	#define $(CFG_SPI_OPT)	1" >> $@
-  # Board misc. parameters
-	@echo "Board misc. param : $(CFG_BRD_MSG)"
-	@echo "	#define $(CFG_BRD_OPT)	1" >> $@
   # Debug options
 	@echo "	#define DEBUG_AUX	$(DEBUG_AUX)" >> $@
 	@echo "	#define DEBUG_SPI	$(DEBUG_SPI)" >> $@
@@ -87,8 +75,6 @@ obj/loragw_aux.o: src/loragw_aux.c inc/loragw_aux.h inc/config.h
 ifeq ($(CFG_SPI),native)
 obj/loragw_spi.o: src/loragw_spi.native.c inc/loragw_spi.h inc/config.h
 	$(CC) -c $(CFLAGS) $< -o $@
-obj/loragw_gpio.o: src/loragw_gpio.native.c inc/loragw_gpio.h inc/config.h
-	$(CC) -c $(CFLAGS) $< -o $@
 else ifeq ($(CFG_SPI),ftdi)
 obj/loragw_spi.o: src/loragw_spi.ftdi.c inc/loragw_spi.h inc/config.h
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -106,7 +92,7 @@ obj/loragw_gps.o: src/loragw_gps.c inc/loragw_gps.h inc/config.h
 ### static library
 
 ifeq ($(CFG_SPI),native)
-libloragw.a: obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o obj/loragw_gpio.o
+libloragw.a: obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
 else ifeq ($(CFG_SPI),ftdi)
 libloragw.a: obj/loragw_hal.o obj/loragw_gps.o obj/loragw_reg.o obj/loragw_spi.o obj/loragw_aux.o
 endif

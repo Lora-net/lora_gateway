@@ -56,6 +56,11 @@ for spectral measurement.
 3. Changelog
 -------------
 
+### v3.1.0 ###
+
+* Removed GPIO module from HAL, that was specific to IoT Starter Kit platform. GPIO configuration will be done from application script instead.
+* Removed CFG_BRD configuration from library.cfg, not needed anymore
+
 ### v3.0.2 ###
 
 * Bugfix: Fixed frequency calculation on uplinks: lgw_receive() function was using a variable to calculate the frequency before it was initialized with correct value. 

@@ -124,19 +124,8 @@ const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
 	#define		CFG_SPI_STR		"spi?"
 #endif
 
-#if (CFG_BRD_1301IOTSK868 == 1)
-	#define		CFG_BRD_STR		"iot_sk_1301_868"
-/* === ADD CUSTOMIZATION FOR YOUR OWN BOARD HERE ===
-#elif (CFG_BRD_MYBOARD == 1)
-*/
-#elif (CFG_BRD_NONE == 1)
-	#define		CFG_BRD_STR		"no_brd"
-#else
-	#define		CFG_BRD_STR		"brd?"
-#endif
-
 /* Version string, used to identify the library version/options once compiled */
-const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CFG_SPI_STR " " CFG_BRD_STR ";";
+const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CFG_SPI_STR ";";
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */

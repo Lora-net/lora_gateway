@@ -123,7 +123,7 @@ steps, typically to allow for supply voltages or clocks to stabilize after been
 switched on.
 
 An accuracy of 1 ms or less is ideal.
-If your system doesn't allow that level of accuracy, make sure that the actual
+If your system does not allow that level of accuracy, make sure that the actual
 delay is *longer* that the time specified when the function is called (ie.
 wait_ms(X) **MUST NOT** before X milliseconds under any circumstance).
 
@@ -185,8 +185,6 @@ The other settings available in library.cfg are:
   Note: when using native SPI on linux host, ensure that the /dev/spidevX.X
   which is to be opened on your host is the same as the one defined in
   libloragw/src/loragw_spi.native.c
-
-* CFG_BRD configures board misc parameters.
 
 ### 3.3. Building procedures ###
 

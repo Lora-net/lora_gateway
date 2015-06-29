@@ -31,7 +31,6 @@ Maintainer: Sylvain Miermont
 #include <sys/ioctl.h>
 #include <linux/spi/spidev.h>
 
-#include "loragw_gpio.h"
 #include "loragw_spi.h"
 #include "loragw_hal.h"
 
@@ -128,30 +127,6 @@ int lgw_spi_open(void **spi_target_ptr) {
 		return LGW_SPI_ERROR;
 	}
 
-	/*  If a RESET PIN has been defined, we reset the SX1301 */
-#ifdef LGW_SX1301_RESET_PIN
-	if( lgw_gpio_export(LGW_SX1301_RESET_PIN) < 0 ){
-		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
-		return LGW_SPI_ERROR;
-	}
-	if( lgw_gpio_direction(LGW_SX1301_RESET_PIN, LGW_GPIO_OUT) < 0 ){
-		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
-		return LGW_SPI_ERROR;
-	}
-	if( lgw_gpio_write(LGW_SX1301_RESET_PIN, LGW_GPIO_HIGH) < 0 ){
-		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
-		return LGW_SPI_ERROR;
-	}
-	if( lgw_gpio_write(LGW_SX1301_RESET_PIN, LGW_GPIO_LOW) < 0 ){
-		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
-		return LGW_SPI_ERROR;
-	}
-	if( lgw_gpio_direction(LGW_SX1301_RESET_PIN, LGW_GPIO_IN) < 0 ){
-		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
-		return LGW_SPI_ERROR;
-	}
-#endif
-
 	*spi_device = dev;
 	*spi_target_ptr = (void *)spi_device;
 	DEBUG_MSG("Note: SPI port opened and configured ok\n");
@@ -172,13 +147,6 @@ int lgw_spi_close(void *spi_target) {
 	spi_device = *(int *)spi_target; /* must check that spi_target is not null beforehand */
 	a = close(spi_device);
 	free(spi_target);
-
-#ifdef LGW_SX1301_RESET_PIN
-	if( lgw_gpio_unexport(LGW_SX1301_RESET_PIN) < 0 ){
-		DEBUG_MSG("ERROR: FAILED TO RESET SX1301\n");
-		return LGW_SPI_ERROR;
-	}
-#endif
 
 	/* determine return code */
 	if (a < 0) {

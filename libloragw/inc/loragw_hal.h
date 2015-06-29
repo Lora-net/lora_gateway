@@ -75,15 +75,6 @@ Maintainer: Sylvain Miermont
 		IF_LORA_STD, \
 		IF_FSK_STD } /* configuration of available IF chains and modems on the hardware */
 
-/* board-specific parameters */
-#if (CFG_BRD_1301IOTSK868 == 1)
-#if (CFG_SPI_NATIVE == 1)
-	#define LGW_SX1301_RESET_PIN	7		/* reset pin for SX1301 (GPIO7 <-> pin 26 on RPi connector) */
-#else
-	/* NOT SUPPORTED */
-#endif
-#endif
-
 /* values available for the 'modulation' parameters */
 /* NOTE: arbitrary values */
 #define MOD_UNDEFINED	0
