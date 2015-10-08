@@ -114,18 +114,8 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 const uint8_t ifmod_config[LGW_IF_CHAIN_NB] = LGW_IFMODEM_CONFIG;
 const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
 
-/* Strings for version (and options) identification */
-
-#if (CFG_SPI_NATIVE == 1)
-	#define		CFG_SPI_STR		"native"
-#elif (CFG_SPI_FTDI == 1)
-	#define		CFG_SPI_STR		"ftdi"
-#else
-	#define		CFG_SPI_STR		"spi?"
-#endif
-
 /* Version string, used to identify the library version/options once compiled */
-const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION "; Options: " CFG_SPI_STR ";";
+const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION ";";
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -212,6 +202,8 @@ void lgw_constant_adjust(void);
 int load_firmware(uint8_t target, uint8_t *firmware, uint16_t size) {
 	int reg_rst;
 	int reg_sel;
+    uint8_t fw_check[8192];
+    int32_t dummy;
 
 	/* check parameters */
 	CHECK_NULL(firmware);
@@ -243,6 +235,14 @@ int load_firmware(uint8_t target, uint8_t *firmware, uint16_t size) {
 
 	/* write the program in one burst */
 	lgw_reg_wb(LGW_MCU_PROM_DATA, firmware, size);
+
+    /* Read back firmware code for check */
+    lgw_reg_r( LGW_MCU_PROM_DATA, &dummy ); /* bug workaround */
+    lgw_reg_rb( LGW_MCU_PROM_DATA, fw_check, size );
+    if (memcmp(firmware, fw_check, size) != 0) {
+        printf ("ERROR: Failed to load fw %d\n", (int)target);
+        return -1;
+    }
 
 	/* give back control of the MCU program ram to the MCU */
 	lgw_reg_w(reg_sel, 1);

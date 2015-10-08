@@ -53,8 +53,20 @@ gateways as receivers.
 This software is used to set LoRa concentrator in Tx continuous mode,
 for spectral measurement.
 
+### 2.5. util_spectral_scan ###
+
+This software is used to scan the spectral band in background, where the LoRa
+gateway operates.
+
 3. Changelog
 -------------
+
+### v3.2.0 ###
+
+* Added support for SX1301AP2 reference design (with FPGA and additional SX1272). When a FPGA is detected at startup, the HAL automatically adapt SPI communication requests (using SPI header or not).
+* Added util_spectral_scan diagnostic tool to scan the spectral band in background, where the LoRa gateway operates. (can only be used with SX1301AP2 or similar design). By default it uses the same SPI device as the one used by the HAL, but it can be changed depending on the hardware architecture on which it is used.
+* Removed SPI FTDI support due to lack of performances to properly handle heavy packet traffic. Only native SPI suage is recommended.
+* HAL: added a check that SX1301 firmwares have been properly loaded at startup.
 
 ### v3.1.0 ###
 
