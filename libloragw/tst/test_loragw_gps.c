@@ -66,22 +66,26 @@ int main()
 	struct sigaction sigact; /* SIGQUIT&SIGINT&SIGTERM signal handling */
 	
 	int i;
-	char tmp_str[80];
+
+    /* concentrator variables */
+	struct lgw_conf_board_s boardconf;
+	struct lgw_conf_rxrf_s rfconf;
 	
 	/* serial variables */
-	char serial_buff[128]; /* buffer to receive GPS data */
-	ssize_t nb_char;
-	int gps_tty_dev; /* file descriptor to the serial port of the GNSS module */
+    char serial_buff[128]; /* buffer to receive GPS data */
+    ssize_t nb_char;
+    ssize_t nb_char_msg;
+    int gps_tty_dev; /* file descriptor to the serial port of the GNSS module */
 	
-	/* NMEA variables */
-	enum gps_msg latest_msg; /* keep track of latest NMEA message parsed */
+	/* NMEA/UBX variables */
+	enum gps_msg latest_msg; /* keep track of latest NMEA/UBX message parsed */
 	
 	/* variables for PPM pulse GPS synchronization */
 	uint32_t ppm_tstamp;
-	struct timespec ppm_utc;
+    struct timespec ppm_gps;
 	struct tref ppm_ref;
 	
-	/* variables for timestamp <-> UTC conversions */
+	/* variables for timestamp <-> GPS time conversions */
 	uint32_t x, z;
 	struct timespec y;
 	
@@ -98,13 +102,28 @@ int main()
 	printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 	
 	/* Open and configure GPS */
-	i = lgw_gps_enable("/dev/ttyACM0", NULL, 0, &gps_tty_dev);
+	i = lgw_gps_enable("/dev/ttyAMA0", NULL, 0, &gps_tty_dev);
 	if (i != LGW_GPS_SUCCESS) {
 		printf("ERROR: IMPOSSIBLE TO ENABLE GPS\n");
 		exit(EXIT_FAILURE);
 	}
 	
-	/* start concentrator */
+	/* start concentrator (default conf for IoT SK) */
+	/* board config */
+	memset(&boardconf, 0, sizeof(boardconf));
+	boardconf.lorawan_public = true;
+	boardconf.clksrc = 1;
+	lgw_board_setconf(boardconf);
+
+	/* RF config */
+	memset(&rfconf, 0, sizeof(rfconf));
+	rfconf.enable = true;
+	rfconf.freq_hz = 868000000;
+	rfconf.rssi_offset = 0.0;
+	rfconf.type = LGW_RADIO_TYPE_SX1257;
+	rfconf.tx_enable = true;
+	lgw_rxrf_setconf(0, rfconf);
+
 	lgw_start();
 	
 	/* initialize some variables before loop */
@@ -122,17 +141,17 @@ int main()
 			serial_buff[nb_char] = 0;
 		}
 		
-		/* parse the received NMEA */
-		latest_msg = lgw_parse_nmea(serial_buff, sizeof(serial_buff));
+		/* parse the received UBX message */
+		latest_msg = lgw_parse_ubx(serial_buff, sizeof(serial_buff), &nb_char_msg);
 		
-		if (latest_msg == NMEA_RMC) {
+		if (latest_msg == UBX_NAV_TIMEGPS) {
 			
-			printf("\n~~ RMC NMEA sentence, triggering synchronization attempt ~~\n");
+			printf("\n~~ UBX NAV-TIMEGPS sentence, triggering synchronization attempt ~~\n");
 			
-			/* get UTC time for synchronization */
-			i = lgw_gps_get(&ppm_utc, NULL, NULL);
+			/* get GPS time for synchronization */
+			i = lgw_gps_get(&ppm_gps, NULL, NULL);
 			if (i != LGW_GPS_SUCCESS) {
-				printf("    No valid reference UTC time available, synchronization impossible.\n");
+				printf("    No valid reference GPS time available, synchronization impossible.\n");
 				continue;
 			}
 			/* get timestamp for synchronization */
@@ -141,26 +160,24 @@ int main()
 				printf("    Failed to read timestamp, synchronization impossible.\n");
 				continue;
 			}
-			/* try to update synchronize time reference with the new UTC & timestamp */
-			i = lgw_gps_sync(&ppm_ref, ppm_tstamp, ppm_utc);
+			/* try to update synchronize time reference with the new GPS & timestamp */
+			i = lgw_gps_sync(&ppm_ref, ppm_tstamp, ppm_gps);
 			if (i != LGW_GPS_SUCCESS) {
 				printf("    Synchronization error.\n");
 				continue;
 			}
 			/* display result */
 			printf("    * Synchronization successful *\n");
-			strftime(tmp_str, sizeof(tmp_str), "%F %T", gmtime(&(ppm_ref.utc.tv_sec)));
-			printf("    UTC reference time: %s.%09ldZ\n", tmp_str, ppm_ref.utc.tv_nsec);
+			printf("    GPS reference time: %lld.%09ld\n", (long long)ppm_ref.gps_time.tv_sec, ppm_ref.gps_time.tv_nsec);
 			printf("    Internal counter reference value: %u\n", ppm_ref.count_us);
 			printf("    Clock error: %.9f\n", ppm_ref.xtal_err);
 			
 			x = ppm_tstamp + 500000;
-			printf("    * Test of timestamp counter <-> UTC value conversion *\n");
+			printf("    * Test of timestamp counter <-> GPS value conversion *\n");
 			printf("    Test value: %u\n", x);
-			lgw_cnt2utc(ppm_ref, x, &y);
-			strftime(tmp_str, sizeof(tmp_str), "%F %T", gmtime(&(y.tv_sec)));
-			printf("    Conversion to UTC: %s.%09ldZ\n", tmp_str, y.tv_nsec);
-			lgw_utc2cnt(ppm_ref, y, &z);
+			lgw_cnt2gps(ppm_ref, x, &y);
+			printf("    Conversion to GPS: %lld.%09ld\n", (long long)y.tv_sec, y.tv_nsec);
+			lgw_gps2cnt(ppm_ref, y, &z);
 			printf("    Converted back: %u\n", z);
 		}
 	}

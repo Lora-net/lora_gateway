@@ -56,6 +56,18 @@ for spectral measurement.
 3. Changelog
 -------------
 
+### v3.9.9 ###
+* Changed GPS module to get native GPS time (monotonic, no leap second) instead of UTC time.
+* lgw_cnt2utc and lgw_utc2cnt functions have been replaced by lgw_cnt2gps and lgw_gps2cnt.
+
+** WARNING: **
+** The native GPS time is not given in standard NMEA messages, so we get it from a proprietary
+   message of the GPS module used on gateway reference design, u-blox 7.
+   If you are not using the same GPS module, you may have to update the lgw_parse_ubx() function.
+
+** NOTE: **
+** This version is to be used with the packet forwarder v2.9.9 for experimental Class-B support.
+
 ### v3.1.0 ###
 
 * Removed GPIO module from HAL, that was specific to IoT Starter Kit platform. GPIO configuration will be done from application script instead.
