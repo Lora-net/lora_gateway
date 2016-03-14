@@ -65,7 +65,7 @@ gateway operates.
 
 * Added support for SX1301AP2 reference design (with FPGA and additional SX1272). When a FPGA is detected at startup, the HAL automatically adapt SPI communication requests (using SPI header or not).
 * Added util_spectral_scan diagnostic tool to scan the spectral band in background, where the LoRa gateway operates. (can only be used with SX1301AP2 or similar design). By default it uses the same SPI device as the one used by the HAL, but it can be changed depending on the hardware architecture on which it is used.
-* Removed SPI FTDI support due to lack of performances to properly handle heavy packet traffic. Only native SPI suage is recommended.
+* Removed SPI FTDI support due to lack of performances to properly handle heavy packet traffic. Only native SPI usage is recommended.
 * HAL: added a check that SX1301 firmwares have been properly loaded at startup.
 
 ### v3.1.0 ###
@@ -108,10 +108,10 @@ gateway operates.
 
 ### v1.7.0 ###
 
-* Added TX ìstart delayî compensation for timestamp mode (fix time window alignment issue at low SF and/or high BW)
+* Added TX ‚Äústart delay‚Äù compensation for timestamp mode (fix time window alignment issue at low SF and/or high BW)
 * Added adaptive narrowband/wideband TX filtering for LoRa
 * Added a command-line option to set CR in util_tx_test
-* Added notes for TX ìstart delayî in immediate and triggered mode
+* Added notes for TX ‚Äústart delay‚Äù in immediate and triggered mode
 
 /!\ warning: due to start delay compensation being implemented, TX that were 
 previously 1.5ms late will be sent on time. At low datarate, this is not an 
@@ -240,7 +240,7 @@ maximum ratings or operation outside the specified range.
 SEMTECH PRODUCTS ARE NOT DESIGNED, INTENDED, AUTHORIZED OR WARRANTED TO BE 
 SUITABLE FOR USE IN LIFE-SUPPORT APPLICATIONS, DEVICES OR SYSTEMS OR OTHER 
 CRITICAL APPLICATIONS. INCLUSION OF SEMTECH PRODUCTS IN SUCH APPLICATIONS IS 
-UNDERSTOOD TO BE UNDERTAKEN SOLELY AT THE CUSTOMERíS OWN RISK. Should a 
+UNDERSTOOD TO BE UNDERTAKEN SOLELY AT THE CUSTOMER‚ÄôS OWN RISK. Should a 
 customer purchase or use Semtech products for any such unauthorized 
 application, the customer shall indemnify and hold Semtech and its officers, 
 employees, subsidiaries, affiliates, and distributors harmless against all 
