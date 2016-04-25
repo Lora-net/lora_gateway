@@ -20,6 +20,8 @@ AR := $(CROSS_COMPILE)ar
 
 CFLAGS=-O2 -Wall -Wextra -std=c99 -Iinc -I.
 
+OBJDIR = obj
+
 ### Constants for LoRa concentrator HAL library
 # List the library sub-modules that are used by the application
 
@@ -35,7 +37,7 @@ LIBS := -lloragw -lrt
 all: $(APP_NAME)
 
 clean:
-	rm -f obj/*.o
+	rm -f $(OBJDIR)/*.o
 	rm -f $(APP_NAME)
 
 ### HAL library (do no force multiple library rebuild even with 'make -B')
@@ -52,10 +54,13 @@ $(LGW_PATH)/libloragw.a: $(LGW_INC)
 
 ### Main program compilation and assembly
 
-obj/$(APP_NAME).o: src/$(APP_NAME).c $(LGW_INC)
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+$(OBJDIR)/$(APP_NAME).o: src/$(APP_NAME).c $(LGW_INC) | $(OBJDIR)
 	$(CC) -c $(CFLAGS) -I$(LGW_PATH)/inc $< -o $@
 
-$(APP_NAME): obj/$(APP_NAME).o $(LGW_PATH)/libloragw.a
+$(APP_NAME): $(OBJDIR)/$(APP_NAME).o $(LGW_PATH)/libloragw.a
 	$(CC) -L$(LGW_PATH) $< -o $@ $(LIBS)
 
 ### EOF

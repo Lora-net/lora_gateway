@@ -60,7 +60,7 @@ struct lgw_reg_s {
 #define PAGE_ADDR		0x00
 #define PAGE_MASK		0x03
 
-#define FPGA_VERSION    18
+const uint8_t FPGA_VERSION[] = { 18, 19 }; /* several versions supported */
 
 /*
 auto generated register mapping for C code : 11-Jul-2013 13:20:40
@@ -413,6 +413,18 @@ int page_switch(uint8_t target) {
 	return LGW_REG_SUCCESS;
 }
 
+bool check_fpga_version(uint8_t version) {
+    int i;
+
+    for (i = 0; i < (int)(sizeof FPGA_VERSION); i++) {
+        if (FPGA_VERSION[i] == version ) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
@@ -435,17 +447,20 @@ int lgw_connect(void) {
     /* Detect if the gateway has an FPGA with SPI mux header support */
     /* First, we assume there is an FPGA, and try to read its version */
     spi_stat = lgw_spi_r(lgw_spi_target, LGW_SPI_MUX_MODE1, LGW_SPI_MUX_TARGET_FPGA, loregs[LGW_VERSION].addr, &u);
-       if (spi_stat != LGW_SPI_SUCCESS) {
+    if (spi_stat != LGW_SPI_SUCCESS) {
         DEBUG_MSG("ERROR READING VERSION REGISTER\n");
         return LGW_REG_ERROR;
     }
-    if (u != FPGA_VERSION) {
+    if (check_fpga_version(u) != true) {
         /* We failed to read expected FPGA version, so let's assume there is no FPGA */
         DEBUG_MSG("INFO: no FPGA detected\n");
         lgw_spi_mux_mode = LGW_SPI_MUX_MODE0;
     } else {
         DEBUG_MSG("INFO: detected FPGA with SPI mux header\n");
         lgw_spi_mux_mode = LGW_SPI_MUX_MODE1;
+        /* FPGA Soft Reset */
+        lgw_spi_w(lgw_spi_target, lgw_spi_mux_mode, LGW_SPI_MUX_TARGET_FPGA, 0, 1);
+        lgw_spi_w(lgw_spi_target, lgw_spi_mux_mode, LGW_SPI_MUX_TARGET_FPGA, 0, 0);
     }
 
     /* check SX1301 version */

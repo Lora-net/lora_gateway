@@ -29,44 +29,13 @@ Data structures of the sent packets are accessed by name (ie. not at a
 binary level) so new functionalities can be added to the API without affecting
 that program at all.
 
-It was tested with v1.3.0 of the libloragw library, and should be compatible
-with any later version of the library assuming the API is downward-compatible.
-
 3. Usage
 ---------
 
 The application runs until the specified number of packets have been sent.
 Press Ctrl+C to stop the application before that.
 
-Use the -f option followed by a real number (decimal point and scientific
-'E notation' are OK) to specify the modulation central frequency.
-
-Use the -b option to set LoRa modulation bandwidth in kHz (accepted values: 125,
-250 or 500).
-
-Use the -s option to specify the Spreading Factor of LoRa modulation (values 7
-to 12 are valid).
-
-Use the -c option to specify the Coding Rate of LoRa modulation ( 1 = 4/5, 2 =
-4/6, 3 = 4/7, 4 = 4/8 ).
-
-Use the -p option to set the concentrator TX power in dBm. Not all values are
-supported by hardware (typically 14 et 20 dBm are supported, other values might
-not give expected power). Check with a RF power meter before connecting any
-sensitive equipment.
-
-Use the -r option to set LoRa preamble size. A minimum preamble length of 6
-symbols is enforced.
-
-Use the -z option to set the payload size in bytes.
-
-Use the -t option to specify the number of milliseconds of pause between
-packets. Using zero will result in a quasi-continuous emission.
-
-Use the -x option to specify how many packets should be sent. The value -1 cause
-the program to send packet indefinitely, until stopped (using Ctrl-C).
-
-Use the -i option to invert the LoRa modulation polarity.
+Use the -h to get help and details about available options.
 
 The payload content is:
 [T][E][S][T][packet counter MSB][packet counter LSB] followed by ASCII padding.

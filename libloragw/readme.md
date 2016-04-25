@@ -179,8 +179,12 @@ messages if the DEBUG_xxx is set to 1 in library.cfg
 
 ### 3.3. Building procedures ###
 
-For cross-compilation set the CROSS_COMPILE variable in the Makefile with the
-correct toolchain name.
+For cross-compilation set the ARCH and CROSS_COMPILE variables in the Makefile,
+or in your shell environment, with the correct toolchain name and path.
+ex:
+export PATH=/home/foo/rpi-toolchain/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/bin:$PATH
+export ARCH=arm
+export CROSS_COMPILE=arm-linux-gnueabihf-
 
 The Makefile in the libloragw directory will parse the library.cfg file and 
 generate a config.h C header file containing #define options.

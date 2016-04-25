@@ -13,10 +13,10 @@ Tx continuous program for LoRa concentrator
 1. Introduction
 ----------------
 
-This software is used to set LoRa concentrator in Tx continuous mode,
-for spectral measurement.
-The user can set the modulation type, the modulation parameters, and the multiple gains of
-the Tx chain.
+This software is used to set LoRa concentrator in Tx continuous mode, for
+spectral measurement.
+The user can set the modulation type, the modulation parameters, and the
+multiple gains of the Tx chain.
 The program runs indefinitely, until the user stops the application.
 
 
@@ -27,7 +27,7 @@ See command line help to get the list of all available options:
 ./util_tx_continuous -h
 
 Example:
-./util_tx_continuous -f 868 -r 1 --dig 0 --mix 11 --pa 2 --mod "LORA" --sf 7 --bw 125
+./util_tx_continuous -f 868 -r 1257 --dig 0 --mix 14 --pa 3 --mod "LORA" --sf 7 --bw 125
 
 
 4. License

@@ -90,7 +90,7 @@ F_register(24bit) = F_rf (Hz) / F_step(Hz)
 #define		SX125x_TX_DAC_CLK_SEL	1	/* 0:int, 1:ext */
 #define		SX125x_TX_DAC_GAIN		2	/* 3:0, 2:-3, 1:-6, 0:-9 dBFS (default 2) */
 #define		SX125x_TX_MIX_GAIN		14	/* -38 + 2*TxMixGain dB (default 14) */
-#define		SX125x_TX_PLL_BW		3	/* 0:75, 1:150, 2:225, 3:300 kHz (default 3) */
+#define		SX125x_TX_PLL_BW		1	/* 0:75, 1:150, 2:225, 3:300 kHz (default 3) */
 #define		SX125x_TX_ANA_BW		0	/* 17.5 / 2*(41-TxAnaBw) MHz (default 0) */
 #define		SX125x_TX_DAC_BW		5	/* 24 + 8*TxDacBw Nb FIR taps (default 2) */
 #define		SX125x_RX_LNA_GAIN		1	/* 1 to 6, 1 highest gain */

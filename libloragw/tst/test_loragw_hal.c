@@ -208,52 +208,52 @@ int main(int argc, char **argv)
 	memset(&ifconf, 0, sizeof(ifconf));
 
 	ifconf.enable = true;
-	ifconf.rf_chain = 0;
-	ifconf.freq_hz = -300000;
+	ifconf.rf_chain = 1;
+	ifconf.freq_hz = -400000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(0, ifconf); /* chain 0: LoRa 125kHz, all SF, on f0 - 0.3 MHz */
-	
-	ifconf.enable = true;
-	ifconf.rf_chain = 0;
-	ifconf.freq_hz = 300000;
-	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(1, ifconf); /* chain 1: LoRa 125kHz, all SF, on f0 + 0.3 MHz */
+	lgw_rxif_setconf(0, ifconf); /* chain 0: LoRa 125kHz, all SF, on f1 - 0.4 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
-	ifconf.freq_hz = -300000;
+	ifconf.freq_hz = -200000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(2, ifconf); /* chain 2: LoRa 125kHz, all SF, on f1 - 0.3 MHz */
+	lgw_rxif_setconf(1, ifconf); /* chain 1: LoRa 125kHz, all SF, on f1 - 0.2 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 1;
-	ifconf.freq_hz = 300000;
+	ifconf.freq_hz = 0;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(3, ifconf); /* chain 3: LoRa 125kHz, all SF, on f1 + 0.3 MHz */
+	lgw_rxif_setconf(2, ifconf); /* chain 2: LoRa 125kHz, all SF, on f1 - 0.0 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
-	ifconf.freq_hz = -100000;
+	ifconf.freq_hz = -400000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(4, ifconf); /* chain 4: LoRa 125kHz, all SF, on f0 - 0.1 MHz */
+	lgw_rxif_setconf(3, ifconf); /* chain 3: LoRa 125kHz, all SF, on f0 - 0.4 MHz */
 	
 	ifconf.enable = true;
 	ifconf.rf_chain = 0;
-	ifconf.freq_hz = 100000;
+	ifconf.freq_hz = -200000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(5, ifconf); /* chain 5: LoRa 125kHz, all SF, on f0 + 0.1 MHz */
+	lgw_rxif_setconf(4, ifconf); /* chain 4: LoRa 125kHz, all SF, on f0 - 0.2 MHz */
 	
 	ifconf.enable = true;
-	ifconf.rf_chain = 1;
-	ifconf.freq_hz = -100000;
+	ifconf.rf_chain = 0;
+	ifconf.freq_hz = 0;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(6, ifconf); /* chain 6: LoRa 125kHz, all SF, on f1 - 0.1 MHz */
+	lgw_rxif_setconf(5, ifconf); /* chain 5: LoRa 125kHz, all SF, on f0 + 0.0 MHz */
 	
 	ifconf.enable = true;
-	ifconf.rf_chain = 1;
-	ifconf.freq_hz = 100000;
+	ifconf.rf_chain = 0;
+	ifconf.freq_hz = 200000;
 	ifconf.datarate = DR_LORA_MULTI;
-	lgw_rxif_setconf(7, ifconf); /* chain 7: LoRa 125kHz, all SF, on f1 + 0.1 MHz */
+	lgw_rxif_setconf(6, ifconf); /* chain 6: LoRa 125kHz, all SF, on f0 + 0.2 MHz */
+	
+	ifconf.enable = true;
+	ifconf.rf_chain = 0;
+	ifconf.freq_hz = 400000;
+	ifconf.datarate = DR_LORA_MULTI;
+	lgw_rxif_setconf(7, ifconf); /* chain 7: LoRa 125kHz, all SF, on f0 + 0.4 MHz */
 	
 	/* set configuration for LoRa 'stand alone' channel */
 	memset(&ifconf, 0, sizeof(ifconf));
@@ -279,8 +279,8 @@ int main(int argc, char **argv)
 	txpkt.tx_mode = IMMEDIATE;
 	txpkt.rf_power = 10;
 	txpkt.modulation = MOD_LORA;
-	txpkt.bandwidth = BW_250KHZ;
-	txpkt.datarate = DR_LORA_SF10;
+	txpkt.bandwidth = BW_125KHZ;
+	txpkt.datarate = DR_LORA_SF9;
 	txpkt.coderate = CR_LORA_4_5;
 	strcpy((char *)txpkt.payload, "TX.TEST.LORA.GW.????" );
 	txpkt.size = 20;

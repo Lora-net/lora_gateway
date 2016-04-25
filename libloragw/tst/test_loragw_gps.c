@@ -98,7 +98,7 @@ int main()
 	printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 	
 	/* Open and configure GPS */
-	i = lgw_gps_enable("/dev/ttyACM0", NULL, 0, &gps_tty_dev);
+	i = lgw_gps_enable("/dev/ttyAMA0", NULL, 0, &gps_tty_dev);
 	if (i != LGW_GPS_SUCCESS) {
 		printf("ERROR: IMPOSSIBLE TO ENABLE GPS\n");
 		exit(EXIT_FAILURE);
