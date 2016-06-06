@@ -7,11 +7,11 @@
   (C)2013 Semtech-Cycleo
 
 Description:
-	Host specific functions to address the LoRa concentrator registers through a
-	SPI interface.
-	Single-byte read/write and burst read/write.
-	Does not handle pagination.
-	Could be used with multiple SPI ports in parallel (explicit file descriptor)
+    Host specific functions to address the LoRa concentrator registers through a
+    SPI interface.
+    Single-byte read/write and burst read/write.
+    Does not handle pagination.
+    Could be used with multiple SPI ports in parallel (explicit file descriptor)
 
 License: Revised BSD License, see LICENSE.TXT file include in the project
 Maintainer: Sylvain Miermont
@@ -24,16 +24,16 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- DEPENDANCIES --------------------------------------------------------- */
 
-#include <stdint.h>		/* C99 types*/
+#include <stdint.h>        /* C99 types*/
 
-#include "config.h"	/* library configuration options (dynamically generated) */
+#include "config.h"    /* library configuration options (dynamically generated) */
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC CONSTANTS ----------------------------------------------------- */
 
-#define LGW_SPI_SUCCESS	 0
-#define LGW_SPI_ERROR	-1
-#define LGW_BURST_CHUNK	 1024
+#define LGW_SPI_SUCCESS     0
+#define LGW_SPI_ERROR       -1
+#define LGW_BURST_CHUNK     1024
 
 #define LGW_SPI_MUX_MODE0   0x0     /* No FPGA */
 #define LGW_SPI_MUX_MODE1   0x1     /* FPGA, with spi mux header */
@@ -41,7 +41,7 @@ Maintainer: Sylvain Miermont
 #define LGW_SPI_MUX_TARGET_SX1301   0x0
 #define LGW_SPI_MUX_TARGET_FPGA     0x1
 #define LGW_SPI_MUX_TARGET_EEPROM   0x2
-#define LGW_SPI_MUX_TARGET_SX1272   0x3
+#define LGW_SPI_MUX_TARGET_SX127X   0x3
 
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS PROTOTYPES ------------------------------------------ */

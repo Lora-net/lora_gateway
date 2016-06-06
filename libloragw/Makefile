@@ -47,6 +47,7 @@ inc/config.h: ../VERSION library.cfg
 	@echo "	#define DEBUG_HAL	$(DEBUG_HAL)" >> $@
 	@echo "	#define DEBUG_GPS	$(DEBUG_GPS)" >> $@
 	@echo "	#define DEBUG_GPIO	$(DEBUG_GPIO)" >> $@
+	@echo "	#define DEBUG_LBT	$(DEBUG_LBT)" >> $@
 	# end of file
 	@echo "#endif" >> $@
 	@echo "*** Configuration seems ok ***"
@@ -67,7 +68,7 @@ $(OBJDIR)/loragw_hal.o: src/loragw_hal.c $(INCLUDES) src/arb_fw.var src/agc_fw.v
 
 ### static library
 
-libloragw.a: $(OBJDIR)/loragw_hal.o $(OBJDIR)/loragw_gps.o $(OBJDIR)/loragw_reg.o $(OBJDIR)/loragw_spi.o $(OBJDIR)/loragw_aux.o
+libloragw.a: $(OBJDIR)/loragw_hal.o $(OBJDIR)/loragw_gps.o $(OBJDIR)/loragw_reg.o $(OBJDIR)/loragw_spi.o $(OBJDIR)/loragw_aux.o $(OBJDIR)/loragw_radio.o $(OBJDIR)/loragw_fpga.o $(OBJDIR)/loragw_lbt.o
 	$(AR) rcs $@ $^
 
 ### test programs

@@ -71,12 +71,6 @@ static int quit_sig = 0; /* 1 -> application terminates without shutting down th
 
 static void sig_handler(int sigio);
 
-void sx125x_write(uint8_t channel, uint8_t addr, uint8_t data); /* defined in loragw_hal.c */
-
-uint8_t sx125x_read(uint8_t channel, uint8_t addr); /* defined in loragw_hal.c */
-
-int load_firmware(uint8_t target, uint8_t *firmware, uint16_t size); /* defined in loragw_hal.c */
-
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
 
