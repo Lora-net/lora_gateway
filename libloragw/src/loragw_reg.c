@@ -48,7 +48,7 @@ Maintainer: Sylvain Miermont
 #define PAGE_ADDR        0x00
 #define PAGE_MASK        0x03
 
-const uint8_t FPGA_VERSION[] = { 18, 19, 27 }; /* several versions supported */
+const uint8_t FPGA_VERSION[] = { 27 }; /* several versions could be supported */
 
 /*
 auto generated register mapping for C code : 11-Jul-2013 13:20:40
@@ -521,7 +521,7 @@ int lgw_connect(void) {
     }
     if (check_fpga_version(u) != true) {
         /* We failed to read expected FPGA version, so let's assume there is no FPGA */
-        DEBUG_MSG("INFO: no FPGA detected\n");
+        DEBUG_PRINTF("INFO: no FPGA detected or version not supported (v%u)\n", u);
         lgw_spi_mux_mode = LGW_SPI_MUX_MODE0;
     } else {
         DEBUG_PRINTF("INFO: detected FPGA with SPI mux header (v%u)\n", u);
@@ -536,7 +536,7 @@ int lgw_connect(void) {
     /* check SX1301 version */
     spi_stat |= lgw_spi_r(lgw_spi_target, lgw_spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, loregs[LGW_VERSION].addr, &u);
     if (u != loregs[LGW_VERSION].dflt) {
-        DEBUG_MSG("ERROR: NOT EXPECTED CHIP VERSION\n");
+        DEBUG_PRINTF("ERROR: NOT EXPECTED CHIP VERSION (v%u)\n", u);
         return LGW_REG_ERROR;
     }
 

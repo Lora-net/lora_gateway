@@ -70,6 +70,14 @@ chip through GPIO, before starting any application using the concentrator.
 4. Changelog
 -------------
 
+### v4.0.1 ###
+
+* HAL: SX1301AP2: Only FPGA v27 is supported, removed (v18,v19) from the list
+        of supported FPGA images.
+
+WARNING: If you are using a Semtech SX1301AP2 ref design (GW1.5), the FPGA must
+be reprogrammed with one of the images provided with this release (fpga/ dir).
+
 ### v4.0.0 ###
 
 * HAL: Added "Listen-Before-Talk" support for Semtech SX1301AP2 Ref Design.
