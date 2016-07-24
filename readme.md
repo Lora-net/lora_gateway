@@ -55,8 +55,39 @@ for spectral measurement.
 This software is used to scan the spectral band in background, where the LoRa
 gateway operates.
 
-3. Changelog
+### 2.6. util_lbt_test ###
+
+This software is used to test "Listen-Before-Talk" channels timestamps.
+
+3. Helper scripts
+-----------------
+
+### 3.1. reset_lgw.sh
+
+This script must be launched on IoT Start Kit platform to reset concentrator
+chip through GPIO, before starting any application using the concentrator.
+
+4. Changelog
 -------------
+
+### v4.0.1 ###
+
+* HAL: SX1301AP2: Only FPGA v27 is supported, removed (v18,v19) from the list
+        of supported FPGA images.
+
+WARNING: If you are using a Semtech SX1301AP2 ref design (GW1.5), the FPGA must
+be reprogrammed with one of the images provided with this release (fpga/ dir).
+
+### v4.0.0 ###
+
+* HAL: Added "Listen-Before-Talk" support for Semtech SX1301AP2 Ref Design.
+       A description of the feature implementation can be found in
+       libloragw/readme.md.
+* HAL: Updated FSK RSSI calculation for better linearization
+* util_lbt_test: New utility provided for basic "Listen-Before-Talk" testing.
+* util_tx_test: Extended to configure and test "LBT" through the HAL.
+* Added a reset_lgw.sh script to be used with IoT Starter Kit (v1.0) to reset
+the concentrator through the HOST GPIO pin.
 
 ### v3.2.1 ###
 
@@ -69,11 +100,13 @@ FPGA was missing for proper IQ inversion configuration.
 * util_tx_continous: reworked to use HAL functions instead of 'manual' config,
 and use same SX1301 calibration firmware as the HAL.
 * Updated all makefiles to handle the creation of obj directory when necessary.
+* Change cs_change usage policy in SPI module to let the driver handle the chip
+select.
 
 ### v3.2.0 ###
 
 * Added support for SX1301AP2 reference design (with FPGA and additional
-SX1272). When a FPGA is detected at startup, the HAL automatically adapts SPI
+SX127x). When a FPGA is detected at startup, the HAL automatically adapts SPI
 communication requests (using SPI header or not).
 * Added util_spectral_scan diagnostic tool to scan the spectral band in
 background, where the LoRa gateway operates. (can only be used with SX1301AP2
@@ -280,7 +313,7 @@ SPI-over-USB bridge).
 * Remove the 500 kHz limit on radio bandwith, back to the nominal 800 kHz.
 * Renamed debug flags.
 
-4. Legal notice
+5. Legal notice
 ----------------
 
 The information presented in this project documentation does not form part of 

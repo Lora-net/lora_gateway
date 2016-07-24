@@ -19,12 +19,12 @@ detect occupied bands and get interferer profiles.
 It logs the histogram in a .csv file.
 
 This utility program is meant to run on the LoRa gateway reference design
-SX1301AP2 (with FPGA and additionnal SX1272).
+SX1301AP2 (with FPGA and additionnal SX127x).
 
 The background RSSI scan is a diagnostic tool and must be run on top of the
 gateway activity. Moreover the two SX1257 radios have to be configured in RX
-mode to optimize the matching impedance with SX1272. The 32MHz clock provided
-to the SX1272 is available once SX1301 has enabled the two SX1257 radios, so
+mode to optimize the matching impedance with SX127x. The 32MHz clock provided
+to the SX127x is available once SX1301 has enabled the two SX1257 radios, so
 the background RSSI scan must be launched after the packet forwarder.
 
 2. Command line options

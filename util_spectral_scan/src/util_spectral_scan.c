@@ -31,9 +31,11 @@ Maintainer: Matthieu Leurent
 #include <unistd.h>     /* getopt */
 #include <string.h>
 
-#include "loragw_fpga_spi.h"
-#include "loragw_fpga_reg.h"
-#include "loragw_fpga_aux.h"
+#include "loragw_aux.h"
+#include "loragw_reg.h"
+#include "loragw_hal.h"
+#include "loragw_radio.h"
+#include "loragw_fpga.h"
 
 /* -------------------------------------------------------------------------- */
 /* --- MACROS & CONSTANTS --------------------------------------------------- */
@@ -56,11 +58,6 @@ Maintainer: Matthieu Leurent
 
 /* -------------------------------------------------------------------------- */
 /* --- GLOBAL VARIABLES ----------------------------------------------------- */
-
-/* -------------------------------------------------------------------------- */
-/* --- SUBFUNCTIONS DECLARATION --------------------------------------------- */
-
-int setup_sx1272( uint32_t freq );
 
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
@@ -92,11 +89,6 @@ int main( int argc, char ** argv )
     uint16_t rssi_histo;
     uint16_t rssi_cumu;
     float rssi_thresh[] = {0.1,0.3,0.5,0.8,1};
-
-    /* FPGA settings */
-    uint32_t input_sync_edge  = 0;
-    uint32_t output_sync_edge = 0;
-    uint32_t filt_on = 1;
 
     /* Parse command line options */
     while( (i = getopt( argc, argv, "hud::f:n:r:l:" )) != -1 )
@@ -177,17 +169,22 @@ int main( int argc, char ** argv )
     /* Start message */
     printf( "+++ Start spectral scan of LoRa gateway channels +++\n" );
 
-    x = lgw_fpga_connect( );
+    x = lgw_connect( );
     if( x != 0 )
     {
         printf( "ERROR: Failed to connect to FPGA\n" );
         return EXIT_FAILURE;
     }
 
+    /* Check if FPGA supports Spectral Scan */
+    lgw_fpga_reg_r(LGW_FPGA_FPGA_FEATURE, &reg_val);
+    if (TAKE_N_BITS_FROM((uint8_t)reg_val, 1, 1) != true) {
+        printf("ERROR: Spectral Scan is not supported (0x%x)\n", (uint8_t)reg_val);
+        return EXIT_FAILURE;
+    }
+
     /* Configure FPGA */
-    x = lgw_fpga_reg_w(LGW_FPGA_FPGA_CTRL, (filt_on << 4) | (input_sync_edge << 2)| (output_sync_edge << 3) | (1 << 1)); /* Reset Radio */
-    x |= lgw_fpga_reg_w(LGW_FPGA_FPGA_CTRL, (filt_on << 4) | (input_sync_edge << 2)| (output_sync_edge << 3));
-    x |= lgw_fpga_reg_w(LGW_FPGA_HISTO_TEMPO, rssi_rate_div);
+    x = lgw_fpga_reg_w(LGW_FPGA_HISTO_TEMPO, rssi_rate_div);
     x |= lgw_fpga_reg_w(LGW_FPGA_HISTO_NB_READ, rssi_pts);
     if( x != LGW_REG_SUCCESS )
     {
@@ -216,16 +213,16 @@ int main( int argc, char ** argv )
         freq = start_freq + j * step_freq;
         printf( "%d", freq );
 
-        /* Set SX1272 */
-        x = setup_sx1272( freq );
+        /* Set SX127x */
+        x = lgw_setup_sx127x( freq, MOD_LORA );
         if( x != 0 )
         {
-            printf( "ERROR: SX1272 setup failed\n" );
+            printf( "ERROR: SX127x setup failed\n" );
             return EXIT_FAILURE;
         }
 
         /* Start histogram */
-        lgw_fpga_reg_w(LGW_FPGA_FPGA_CTRL, 1);
+        lgw_fpga_reg_w(LGW_FPGA_CTRL_FEATURE_START, 1);
 
         /* Wait until rssi_pts have been processed */
         do
@@ -236,7 +233,7 @@ int main( int argc, char ** argv )
         while( (reg_val & 0x0F) != 8 );
 
         /* Stop histogram */
-        lgw_fpga_reg_w(LGW_FPGA_FPGA_CTRL, 0);
+        lgw_fpga_reg_w(LGW_FPGA_CTRL_FEATURE_START, 0);
 
         /* Read histogram */
         lgw_fpga_reg_w(LGW_FPGA_HISTO_RAM_ADDR, 0);
@@ -262,7 +259,7 @@ int main( int argc, char ** argv )
     fclose( log_file );
 
     /* Close SPI */
-    x = lgw_fpga_disconnect( );
+    x = lgw_disconnect( );
     if( x != 0 )
     {
         printf( "ERROR: Failed to disconnect FPGA\n" );
@@ -271,77 +268,6 @@ int main( int argc, char ** argv )
 
     printf( "+++  Exiting Spectral scan program +++\n" );
 
-    return EXIT_SUCCESS;
-}
-
-/* -------------------------------------------------------------------------- */
-/* --- SUBFUNCTIONS DEFINITION ---------------------------------------------- */
-
-int setup_sx1272( uint32_t freq )
-{
-    uint64_t freq_reg;
-    uint8_t bw = 0;
-    uint8_t LowZin = 1;
-    uint8_t sf = 7;
-    uint8_t AgcAuto = 1;
-    uint8_t LnaGain = 1;
-    uint8_t TrimRxCrFo = 0;
-    uint8_t LnaBoost = 3;
-    uint8_t AdcBwAuto = 0;
-    uint8_t AdcBw = 7;
-    uint8_t AdcLowPwr = 0;
-    uint8_t AdcTrim = 6;
-    uint8_t AdcTest = 0;
-    uint8_t reg_val;
-    int x;
-
-    x = lgw_sx1272_reg_r(0x42, &reg_val);
-    if (x != LGW_REG_SUCCESS) {
-        printf("ERROR: Failed to read SX1272 version register\n");
-        return EXIT_FAILURE;
-    }
-    if (reg_val != 0x22) {
-        printf("ERROR: Unexpected SX1272 version\n");
-        return EXIT_FAILURE;
-    }
-
-    /* Set in LoRa mode */
-    x = lgw_sx1272_reg_w(0x01, 0);
-    wait_ms(100);
-    x |= lgw_sx1272_reg_w(0x01, 0 | (1<<7));
-    wait_ms(100);
-    x |= lgw_sx1272_reg_w(0x01, 1 | (1<<7));
-    wait_ms(100);
-
-    /* Set PLL freq */
-    freq_reg = ((uint64_t)freq << 19) / (uint64_t)32000000;
-    x |= lgw_sx1272_reg_w(6, (freq_reg >> 16) & 0xFF);
-    x |= lgw_sx1272_reg_w(7, (freq_reg >>  8) & 0xFF);
-    x |= lgw_sx1272_reg_w(8,  freq_reg        & 0xFF);
-
-    /* Config */
-    x |= lgw_sx1272_reg_w(0x1D, bw << 6);
-    x |= lgw_sx1272_reg_w(0x50, LowZin);
-    x |= lgw_sx1272_reg_w(0x1E, (sf << 4) | (AgcAuto << 2));
-    x |= lgw_sx1272_reg_w(0x0C, LnaBoost | (TrimRxCrFo << 3) | (LnaGain << 5));
-    x |= lgw_sx1272_reg_w(0x68, AdcBw | (AdcBwAuto << 3));
-    x |= lgw_sx1272_reg_w(0x69, AdcTest | (AdcTrim << 4) | (AdcLowPwr << 7));
-
-    if (x != LGW_REG_SUCCESS) {
-        printf("ERROR: Failed to configure SX1272\n");
-        return EXIT_FAILURE;
-    }
-
-    /* Set in Rx continuous mode */
-    x = lgw_sx1272_reg_w(0x01, 5 | (1<<7));
-    wait_ms(100);
-    x |= lgw_sx1272_reg_r(0x01, &reg_val);
-    if ((reg_val != (5 | (1<<7))) || (x != LGW_REG_SUCCESS)) {
-        printf("ERROR: SX1272 failed to enter RX continuous mode\n");
-        return EXIT_FAILURE;
-    }
-
-    //printf("INFO: Successfully configured SX1272\n");
     return EXIT_SUCCESS;
 }
 
