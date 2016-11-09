@@ -178,78 +178,70 @@ This module is only required for SX1301AP2 reference design.
 ### 2.8. loragw_lbt ###
 
 This module contains functions to configure and use the "Listen-Before-Talk"
-feature. It depends on the loragw_fpga and loragw_radio modules.
+feature (refered as LBT below). It depends on the loragw_fpga and loragw_radio
+modules.
 
 LBT feature is only available on SX1301AP2 reference design, which provides the
 FPGA and the SX127x radio required to accomplish the feature.
 
-The FPGA implements the following Finite State Machine (FSM) to scan predefined
-channels used for LBT, using the SX127x radio:
+The FPGA implements the following Finite State Machine (FSM) to scan the defined
+LBT channels (8 max), and also compute the RSSI histogram for spectral scan,
+using the SX127x radio.
 
 
                           +-------+
-                          | idle  |
-                          +-------+
-                              |
-                              v
-                         +---------+
-                         | set pll |<----+
-                         +---------+     |
-                              |          |
-                              v          |
-                         +----------+    |
-                         | wait pll |    |
-                         |   lock   |    |
-                         +----------+    |
-                              |          |
-                              v          |
-                        +-----------+    |
-                    +-->| read rssi |    |
-                    |   +-----------+    |
-      The number of |         |          |
-   read defines the |         v          | The delay between 2 channel
-  CHANNEL_SCAN_TIME |   +------------+   | scan is equal to
-                    |   | compare to |   | PLL_LOCK_TIME + CHANNEL_SCAN_TIME
-                    +---+            |   |
-                        | threshold  |   |
-                        +------------+   |
-                              |          |
-                              v          |
-                        +------------+   |
-                        | update CH_n|   |
-                        |  timestamp |   |
-                        +----------- +   |
-                              |          |
-                              v          |
-                        +-----------+    |
-                        |   update  |    |
-                        |  rf freq  |    |
-                        +-----+-----+    |
-                              |          |
-                              +----------+
+      +------------------>+ idle  +------------------+
+      |                   +-------+                  v
+      |                       |                +-----------+
+      |                       |                | clean mem |
+      |                       v                +-----------+
+      |                  +----------+                |
+      |                  | set freq |<---------------+
+      |                  +----------+
+      |                       |
+      |                       v
+      |                  +----------+
+      |                  | wait pll |
+      |                  |   lock   |
+      |                  +----------+
+      |                       |                (SCAN_CHANNEL)
+      |                       v                +-----------+
+      |                 +-----------+          |           |
+      |                 |           +----------+           v
+      |             +-->| read RSSI |                +------------+
+      |             |   |           +<---------------+ calc histo |
+      |             |   +-----------+   SCANNING     +------------+
+      |             |         |                            |
+      |    SCANNING |         | (LBT_CHANNEL)              |
+      |             |         v                            |
+      |             |  +-------------+                     |
+      |             |  |   compare   |                     |
+      |             +--+     with    |                     |
+      |                | RSSI_TARGET |          HISTO_DONE |
+      |                +-------------+                     |
+      |                       |                            |
+      |             SCAN DONE |                            |
+      |                       v                            |
+      |                 +------------+                     |
+      |                 |  increase  |                     |
+      +-----------------+            +<--------------------+
+                        |    freq    |
+                        +------------+
+
+
 
 In order to configure the LBT, the following parameters have to be set:
-
-SPI_MASTER_SPEED_DIVIDER: defines the internal SPI_MASTER SPI clock speed.
-                          SPI_clock_freq = 32MHz / (SPI_MASTER_SPEED_DIVIDER*2)
-
-NB_RSSI_READ:             defines the number of SPI reads of SX127x RSSI value
-                          register.
-
-PLL_LOCK_TIME:            defines the delay in 8µs step between frequency
-                          programming and RX ready.
-
-RSSI_TARGET:              defines the signal strength target used to detect if
-                          the channel is busy or not.
-                          RSSI_TARGET_dBm = -RSSI_TARGET / 2
-
-Based on those parameters we have:
-
-CHANNEL_SCAN_TIME (µs) = (NB_RSSI_READ + 1) * Tspi
-    with Tspi (µs) = (16*(2*(SPI_MASTER_SPEED_DIVIDER+1))/32) + 2
+- RSSI_TARGET: signal strength target used to detect if the channel is clear
+               or not.
+               RSSI_TARGET_dBm = -RSSI_TARGET/2
+- LBT_CHx_FREQ_OFFSET: with x=[0..7], offset from the predefined LBT start
+                       frequency (863MHz or 915MHz depending on FPGA image),
+                       in 100KHz unit.
+- LBT_SCAN_TIME_CHx: with x=[0..7], the channel scan time to be used for this
+                     LBT channel: 128µs or 5000µs
 
 With this FSM, the FPGA keeps the last instant when each channel was free during
-more than CHANNEL_SCAN_TIME µs.
+more than LBT_SCAN_TIME_CHx µs.
 
 Then, the HAL, when receiving a downlink request, will first determine on which
 LBT channel this downlink is supposed to be sent and then checks if the channel
@@ -266,8 +258,7 @@ In order to determine if a downlink is allowed or not, the HAL does:
     ALLOWED = FALSE
   endif
     where TX_MAX_TIME is the maximum time allowed to send a packet since the
-    last channel free time (this is given to the HAL as a configuration
-    parameter).
+    last channel free time (this depends on the channel scan time ).
 
 
 3. Software build process

@@ -43,9 +43,10 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
-#define VERS                103
-#define READS_WHEN_ERROR    16 /* number of times a read is repeated if there is a read error */
-#define BUFF_SIZE           1024 /* maximum number of bytes that we can write in sx1301 RX data buffer */
+#define VERS                    103
+#define READS_WHEN_ERROR        16 /* number of times a read is repeated if there is a read error */
+#define BUFF_SIZE               1024 /* maximum number of bytes that we can write in sx1301 RX data buffer */
+#define DEFAULT_TX_NOTCH_FREQ   129E3
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES (GLOBAL) ------------------------------------------- */
@@ -139,7 +140,7 @@ int main(int argc, char **argv)
     sigaction(SIGTERM, &sigact, NULL);
 
     /* start SPI link */
-    i = lgw_connect();
+    i = lgw_connect(false, DEFAULT_TX_NOTCH_FREQ);
     if (i != LGW_REG_SUCCESS) {
         MSG("ERROR: lgw_connect() did not return SUCCESS");
         return EXIT_FAILURE;

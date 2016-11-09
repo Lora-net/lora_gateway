@@ -298,6 +298,7 @@ int lgw_gps_enable(char *tty_path, char *gps_familly, speed_t target_brate, int 
     ttyopt.c_iflag |= ICRNL; /* map CR to NL */
     ttyopt.c_iflag |= IGNCR; /* Ignore carriage return on input */
     ttyopt.c_lflag |= ICANON; /* enable canonical input */
+    ttyopt.c_lflag &= ~ECHO; /* disable input re-echoed as output */
 
     /* set new serial ports parameters */
     i = tcsetattr(gps_tty_dev, TCSANOW, &ttyopt);

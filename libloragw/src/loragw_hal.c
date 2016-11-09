@@ -81,9 +81,14 @@ Maintainer: Sylvain Miermont
 #define RSSI_FSK_POLY_1     1.5351
 #define RSSI_FSK_POLY_2     0.003
 
+/* Useful bandwidth of SX125x radios to consider depending on channel bandwidth */
+/* Note: the below values come from lab measurements. For any question, please contact Semtech support */
+#define LGW_RF_RX_BANDWIDTH_125KHZ  925000      /* for 125KHz channels */
+#define LGW_RF_RX_BANDWIDTH_250KHZ  1000000     /* for 250KHz channels */
+#define LGW_RF_RX_BANDWIDTH_500KHZ  1100000     /* for 500KHz channels */
+
 /* constant arrays defining hardware capability */
 const uint8_t ifmod_config[LGW_IF_CHAIN_NB] = LGW_IFMODEM_CONFIG;
-const uint32_t rf_rx_bandwidth[LGW_RF_CHAIN_NB] = LGW_RF_RX_BANDWIDTH;
 
 /* Version string, used to identify the library version/options once compiled */
 const char lgw_version_string[] = "Version: " LIBLORAGW_VERSION ";";
@@ -110,6 +115,7 @@ static bool rf_enable[LGW_RF_CHAIN_NB];
 static uint32_t rf_rx_freq[LGW_RF_CHAIN_NB]; /* absolute, in Hz */
 static float rf_rssi_offset[LGW_RF_CHAIN_NB];
 static bool rf_tx_enable[LGW_RF_CHAIN_NB];
+static uint32_t rf_tx_notch_freq[LGW_RF_CHAIN_NB];
 static enum lgw_radio_type_e rf_radio_type[LGW_RF_CHAIN_NB];
 
 static bool if_enable[LGW_IF_CHAIN_NB];
@@ -153,19 +159,15 @@ static int8_t cal_offset_a_q[8]; /* TX Q offset for radio A */
 static int8_t cal_offset_b_i[8]; /* TX I offset for radio B */
 static int8_t cal_offset_b_q[8]; /* TX Q offset for radio B */
 
-/* LBT variables - defined in loragw_lbt module */
-extern bool lbt_enable;
-extern uint8_t lbt_rssi_target;
-extern uint8_t lbt_nb_channel;
-extern uint32_t lbt_first_channel_freq;
-extern uint16_t lbt_scan_time_us;
-
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
 
 int load_firmware(uint8_t target, uint8_t *firmware, uint16_t size);
 
 void lgw_constant_adjust(void);
+
+int32_t lgw_sf_getval(int x);
+int32_t lgw_bw_getval(int x);
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DEFINITION ----------------------------------------- */
@@ -343,6 +345,35 @@ void lgw_constant_adjust(void) {
     return;
 }
 
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+int32_t lgw_bw_getval(int x) {
+    switch (x) {
+        case BW_500KHZ: return 500000;
+        case BW_250KHZ: return 250000;
+        case BW_125KHZ: return 125000;
+        case BW_62K5HZ: return 62500;
+        case BW_31K2HZ: return 31200;
+        case BW_15K6HZ: return 15600;
+        case BW_7K8HZ : return 7800;
+        default: return -1;
+    }
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
+int32_t lgw_sf_getval(int x) {
+    switch (x) {
+        case DR_LORA_SF7: return 7;
+        case DR_LORA_SF8: return 8;
+        case DR_LORA_SF9: return 9;
+        case DR_LORA_SF10: return 10;
+        case DR_LORA_SF11: return 11;
+        case DR_LORA_SF12: return 12;
+        default: return -1;
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
@@ -405,14 +436,21 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
         return LGW_HAL_ERROR;
     }
 
+    /* check if TX notch filter frequency is supported */
+    if ((conf.tx_enable == true) && ((conf.tx_notch_freq < LGW_MIN_NOTCH_FREQ) || (conf.tx_notch_freq > LGW_MAX_NOTCH_FREQ))) {
+        DEBUG_PRINTF("WARNING: NOT A VALID TX NOTCH FILTER FREQUENCY [%u..%u]Hz\n", LGW_MIN_NOTCH_FREQ, LGW_MAX_NOTCH_FREQ);
+        conf.tx_notch_freq = 0;
+    }
+
     /* set internal config according to parameters */
     rf_enable[rf_chain] = conf.enable;
     rf_rx_freq[rf_chain] = conf.freq_hz;
     rf_rssi_offset[rf_chain] = conf.rssi_offset;
     rf_radio_type[rf_chain] = conf.type;
     rf_tx_enable[rf_chain] = conf.tx_enable;
+    rf_tx_notch_freq[rf_chain] = conf.tx_notch_freq;
 
-    DEBUG_PRINTF("Note: rf_chain %d configuration; en:%d freq:%d rssi_offset:%f radio_type:%d tx_enable:%d\n", rf_chain, rf_enable[rf_chain], rf_rx_freq[rf_chain], rf_rssi_offset[rf_chain], rf_radio_type[rf_chain], rf_tx_enable[rf_chain]);
+    DEBUG_PRINTF("Note: rf_chain %d configuration; en:%d freq:%d rssi_offset:%f radio_type:%d tx_enable:%d tx_notch_freq:%u\n", rf_chain, rf_enable[rf_chain], rf_rx_freq[rf_chain], rf_rssi_offset[rf_chain], rf_radio_type[rf_chain], rf_tx_enable[rf_chain], rf_tx_notch_freq[rf_chain]);
 
     return LGW_HAL_SUCCESS;
 }
@@ -420,6 +458,8 @@ int lgw_rxrf_setconf(uint8_t rf_chain, struct lgw_conf_rxrf_s conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
+    int32_t bw_hz;
+    uint32_t rf_rx_bandwidth;
 
     /* check if the concentrator is running */
     if (lgw_is_started == true) {
@@ -449,14 +489,27 @@ int lgw_rxif_setconf(uint8_t if_chain, struct lgw_conf_rxif_s conf) {
         DEBUG_MSG("ERROR: INVALID RF_CHAIN TO ASSOCIATE WITH A LORA_STD IF CHAIN\n");
         return LGW_HAL_ERROR;
     }
-    if ((conf.freq_hz + LGW_REF_BW/2) > ((int32_t)rf_rx_bandwidth[conf.rf_chain] / 2)) {
+    /* check if IF frequency is optimal based on channel and radio bandwidths */
+    switch (conf.bandwidth) {
+        case BW_250KHZ:
+            rf_rx_bandwidth = LGW_RF_RX_BANDWIDTH_250KHZ; /* radio bandwidth */
+            break;
+        case BW_500KHZ:
+            rf_rx_bandwidth = LGW_RF_RX_BANDWIDTH_500KHZ; /* radio bandwidth */
+            break;
+        default:
+            /* For 125KHz and below */
+            rf_rx_bandwidth = LGW_RF_RX_BANDWIDTH_125KHZ; /* radio bandwidth */
+            break;
+    }
+    bw_hz = lgw_bw_getval(conf.bandwidth); /* channel bandwidth */
+    if ((conf.freq_hz + ((bw_hz==-1)?LGW_REF_BW:bw_hz)/2) > ((int32_t)rf_rx_bandwidth/2)) {
         DEBUG_PRINTF("ERROR: IF FREQUENCY %d TOO HIGH\n", conf.freq_hz);
         return LGW_HAL_ERROR;
-    } else if ((conf.freq_hz - LGW_REF_BW/2) < -((int32_t)rf_rx_bandwidth[conf.rf_chain] / 2)) {
+    } else if ((conf.freq_hz - ((bw_hz==-1)?LGW_REF_BW:bw_hz)/2) < -((int32_t)rf_rx_bandwidth/2)) {
         DEBUG_PRINTF("ERROR: IF FREQUENCY %d TOO LOW\n", conf.freq_hz);
         return LGW_HAL_ERROR;
     }
-    /* WARNING: if the channel is 250 or 500kHz wide, that check is insufficient */
 
     /* check parameters according to the type of IF chain + modem,
     fill default if necessary, and commit configuration if everything is OK */
@@ -606,7 +659,7 @@ int lgw_txgain_setconf(struct lgw_tx_gain_lut_s *conf) {
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
 int lgw_start(void) {
-    int i;
+    int i, err;
     int reg_stat;
     unsigned x;
     uint8_t radio_select;
@@ -623,7 +676,7 @@ int lgw_start(void) {
         DEBUG_MSG("Note: LoRa concentrator already started, restarting it now\n");
     }
 
-    reg_stat = lgw_connect();
+    reg_stat = lgw_connect(false, rf_tx_notch_freq[rf_tx_enable[1]?1:0]);
     if (reg_stat == LGW_REG_ERROR) {
         DEBUG_MSG("ERROR: FAIL TO CONNECT BOARD\n");
         return LGW_HAL_ERROR;
@@ -645,22 +698,31 @@ int lgw_start(void) {
     lgw_reg_w(LGW_RADIO_RST,0);
 
     /* setup the radios */
-    setup_sx125x(0, rf_clkout, rf_enable[0], rf_radio_type[0], rf_rx_freq[0]);
-    setup_sx125x(1, rf_clkout, rf_enable[1], rf_radio_type[1], rf_rx_freq[1]);
+    err = lgw_setup_sx125x(0, rf_clkout, rf_enable[0], rf_radio_type[0], rf_rx_freq[0]);
+    if (err != 0) {
+        DEBUG_MSG("ERROR: Failed to setup sx125x radio for RF chain 0\n");
+        return LGW_HAL_ERROR;
+    }
+    err = lgw_setup_sx125x(1, rf_clkout, rf_enable[1], rf_radio_type[1], rf_rx_freq[1]);
+    if (err != 0) {
+        DEBUG_MSG("ERROR: Failed to setup sx125x radio for RF chain 0\n");
+        return LGW_HAL_ERROR;
+    }
 
     /* gives AGC control of GPIOs to enable Tx external digital filter */
     lgw_reg_w(LGW_GPIO_MODE,31); /* Set all GPIOs as output */
     lgw_reg_w(LGW_GPIO_SELECT_OUTPUT,2);
 
     /* Configure LBT */
-    if (lbt_enable == true) {
+    if (lbt_is_enabled() == true) {
         lgw_reg_w(LGW_CLK32M_EN, 1);
-        i = lbt_setup(lbt_first_channel_freq, lbt_rssi_target, lbt_scan_time_us, lbt_nb_channel);
+        i = lbt_setup();
         if (i != LGW_LBT_SUCCESS) {
             DEBUG_MSG("ERROR: lbt_setup() did not return SUCCESS\n");
             return LGW_HAL_ERROR;
         }
 
+        /* Start SX1301 counter and LBT FSM at the same time to be in sync */
         lgw_reg_w(LGW_CLK32M_EN, 0);
         i = lbt_start();
         if (i != LGW_LBT_SUCCESS) {
@@ -706,9 +768,9 @@ int lgw_start(void) {
 
     /* Load the calibration firmware  */
     load_firmware(MCU_AGC, cal_firmware, MCU_AGC_FW_BYTE);
-    lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL,0); /* gives to AGC MCU the control of the radios */
-    lgw_reg_w(LGW_RADIO_SELECT,cal_cmd); /* send calibration configuration word */
-    lgw_reg_w(LGW_MCU_RST_1,0);
+    lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL, 0); /* gives to AGC MCU the control of the radios */
+    lgw_reg_w(LGW_RADIO_SELECT, cal_cmd); /* send calibration configuration word */
+    lgw_reg_w(LGW_MCU_RST_1, 0);
 
     /* Check firmware version */
     lgw_reg_w(LGW_DBG_AGC_MCU_RAM_ADDR, FW_VERSION_ADDR);
@@ -719,13 +781,13 @@ int lgw_start(void) {
         return -1;
     }
 
-    lgw_reg_w(LGW_PAGE_REG,3); /* Calibration will start on this condition as soon as MCU can talk to concentrator registers */
-    lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL,0); /* Give control of concentrator registers to MCU */
+    lgw_reg_w(LGW_PAGE_REG, 3); /* Calibration will start on this condition as soon as MCU can talk to concentrator registers */
+    lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL, 0); /* Give control of concentrator registers to MCU */
 
     /* Wait for calibration to end */
     DEBUG_PRINTF("Note: calibration started (time: %u ms)\n", cal_time);
     wait_ms(cal_time); /* Wait for end of calibration */
-    lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL,1); /* Take back control */
+    lgw_reg_w(LGW_EMERGENCY_FORCE_HOST_CTRL, 1); /* Take back control */
 
     /* Get calibration status */
     lgw_reg_r(LGW_MCU_AGC_STATUS, &read_val);
@@ -737,8 +799,8 @@ int lgw_start(void) {
         bit 2: could access radio B registers
         bit 3: radio A RX image rejection successful
         bit 4: radio B RX image rejection successful
-        bit 5: radio A TX imbalance correction successful
-        bit 6: radio B TX imbalance correction successful
+        bit 5: radio A TX DC Offset correction successful
+        bit 6: radio B TX DC Offset correction successful
     */
     if ((cal_status & 0x81) != 0x81) {
         DEBUG_PRINTF("ERROR: CALIBRATION FAILURE (STATUS = %u)\n", cal_status);
@@ -759,10 +821,10 @@ int lgw_start(void) {
         DEBUG_MSG("WARNING: problem in calibration of radio B for image rejection\n");
     }
     if (rf_enable[0] && rf_tx_enable[0] && ((cal_status & 0x20) == 0)) {
-        DEBUG_MSG("WARNING: problem in calibration of radio A for TX imbalance\n");
+        DEBUG_MSG("WARNING: problem in calibration of radio A for TX DC offset\n");
     }
     if (rf_enable[1] && rf_tx_enable[1] && ((cal_status & 0x40) == 0)) {
-        DEBUG_MSG("WARNING: problem in calibration of radio B for TX imbalance\n");
+        DEBUG_MSG("WARNING: problem in calibration of radio B for TX DC offset\n");
     }
 
     /* Get TX DC offset values */
@@ -783,6 +845,12 @@ int lgw_start(void) {
 
     /* load adjusted parameters */
     lgw_constant_adjust();
+
+    /* Sanity check for RX frequency */
+    if (rf_rx_freq[0] == 0) {
+        DEBUG_MSG("ERROR: wrong configuration, rf_rx_freq[0] is not set\n");
+        return LGW_HAL_ERROR;
+    }
 
     /* Freq-to-time-drift calculation */
     x = 4096000000 / (rf_rx_freq[0] >> 1); /* dividend: (4*2048*1000000) >> 1, rescaled to avoid 32b overflow */
@@ -825,27 +893,27 @@ int lgw_start(void) {
 
     lgw_reg_w(LGW_PPM_OFFSET, 0x60); /* as the threshold is 16ms, use 0x60 to enable ppm_offset for SF12 and SF11 @125kHz*/
 
-    lgw_reg_w(LGW_CONCENTRATOR_MODEM_ENABLE,1); /* default 0 */
+    lgw_reg_w(LGW_CONCENTRATOR_MODEM_ENABLE, 1); /* default 0 */
 
     /* configure LoRa 'stand-alone' modem (IF8) */
     lgw_reg_w(LGW_IF_FREQ_8, IF_HZ_TO_REG(if_freq[8])); /* MBWSSF modem (default 0) */
     if (if_enable[8] == true) {
         lgw_reg_w(LGW_MBWSSF_RADIO_SELECT, if_rf_chain[8]);
         switch(lora_rx_bw) {
-            case BW_125KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW,0); break;
-            case BW_250KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW,1); break;
-            case BW_500KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW,2); break;
+            case BW_125KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW, 0); break;
+            case BW_250KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW, 1); break;
+            case BW_500KHZ: lgw_reg_w(LGW_MBWSSF_MODEM_BW, 2); break;
             default:
                 DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_bw);
                 return LGW_HAL_ERROR;
         }
         switch(lora_rx_sf) {
-            case DR_LORA_SF7: lgw_reg_w(LGW_MBWSSF_RATE_SF,7); break;
-            case DR_LORA_SF8: lgw_reg_w(LGW_MBWSSF_RATE_SF,8); break;
-            case DR_LORA_SF9: lgw_reg_w(LGW_MBWSSF_RATE_SF,9); break;
-            case DR_LORA_SF10: lgw_reg_w(LGW_MBWSSF_RATE_SF,10); break;
-            case DR_LORA_SF11: lgw_reg_w(LGW_MBWSSF_RATE_SF,11); break;
-            case DR_LORA_SF12: lgw_reg_w(LGW_MBWSSF_RATE_SF,12); break;
+            case DR_LORA_SF7: lgw_reg_w(LGW_MBWSSF_RATE_SF, 7); break;
+            case DR_LORA_SF8: lgw_reg_w(LGW_MBWSSF_RATE_SF, 8); break;
+            case DR_LORA_SF9: lgw_reg_w(LGW_MBWSSF_RATE_SF, 9); break;
+            case DR_LORA_SF10: lgw_reg_w(LGW_MBWSSF_RATE_SF, 10); break;
+            case DR_LORA_SF11: lgw_reg_w(LGW_MBWSSF_RATE_SF, 11); break;
+            case DR_LORA_SF12: lgw_reg_w(LGW_MBWSSF_RATE_SF, 12); break;
             default:
                 DEBUG_PRINTF("ERROR: UNEXPECTED VALUE %d IN SWITCH STATEMENT\n", lora_rx_sf);
                 return LGW_HAL_ERROR;
@@ -865,11 +933,11 @@ int lgw_start(void) {
     lgw_reg_w(LGW_FSK_REF_PATTERN_MSB, (uint32_t)(0xFFFFFFFF & (fsk_sync_word_reg >> 32)));
     if (if_enable[9] == true) {
         lgw_reg_w(LGW_FSK_RADIO_SELECT, if_rf_chain[9]);
-        lgw_reg_w(LGW_FSK_BR_RATIO,LGW_XTAL_FREQU/fsk_rx_dr); /* setting the dividing ratio for datarate */
-        lgw_reg_w(LGW_FSK_CH_BW_EXPO,fsk_rx_bw);
-        lgw_reg_w(LGW_FSK_MODEM_ENABLE,1); /* default 0 */
+        lgw_reg_w(LGW_FSK_BR_RATIO, LGW_XTAL_FREQU/fsk_rx_dr); /* setting the dividing ratio for datarate */
+        lgw_reg_w(LGW_FSK_CH_BW_EXPO, fsk_rx_bw);
+        lgw_reg_w(LGW_FSK_MODEM_ENABLE, 1); /* default 0 */
     } else {
-        lgw_reg_w(LGW_FSK_MODEM_ENABLE,0);
+        lgw_reg_w(LGW_FSK_MODEM_ENABLE, 0);
     }
 
     /* Load firmware */
@@ -877,9 +945,9 @@ int lgw_start(void) {
     load_firmware(MCU_AGC, agc_firmware, MCU_AGC_FW_BYTE);
 
     /* gives the AGC MCU control over radio, RF front-end and filter gain */
-    lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL,0);
-    lgw_reg_w(LGW_FORCE_HOST_FE_CTRL,0);
-    lgw_reg_w(LGW_FORCE_DEC_FILTER_GAIN,0);
+    lgw_reg_w(LGW_FORCE_HOST_RADIO_CTRL, 0);
+    lgw_reg_w(LGW_FORCE_HOST_FE_CTRL, 0);
+    lgw_reg_w(LGW_FORCE_DEC_FILTER_GAIN, 0);
 
     /* Get MCUs out of reset */
     lgw_reg_w(LGW_RADIO_SELECT, 0); /* MUST not be = to 1 or 2 at firmware init */
@@ -976,7 +1044,7 @@ int lgw_start(void) {
     lgw_reg_w(LGW_GPS_EN, 1);
 
     /* */
-    if (lbt_enable) {
+    if (lbt_is_enabled() == true) {
         printf("INFO: Configuring LBT, this may take few seconds, please wait...\n");
         wait_ms(8400);
     }
@@ -1016,7 +1084,7 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
     }
 
     /* check input variables */
-    if (max_pkt <= 0) {
+    if ((max_pkt <= 0) || (max_pkt > LGW_PKT_FIFO_SIZE)) {
         DEBUG_PRINTF("ERROR: %d = INVALID MAX NUMBER OF PACKETS TO FETCH\n", max_pkt);
         return LGW_HAL_ERROR;
     }
@@ -1033,13 +1101,23 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 
         /* fetch all the RX FIFO data */
         lgw_reg_rb(LGW_RX_PACKET_DATA_FIFO_NUM_STORED, buff, 5);
+        /* 0:   number of packets available in RX data buffer */
+        /* 1,2: start address of the current packet in RX data buffer */
+        /* 3:   CRC status of the current packet */
+        /* 4:   size of the current packet payload in byte */
 
         /* how many packets are in the RX buffer ? Break if zero */
         if (buff[0] == 0) {
             break; /* no more packets to fetch, exit out of FOR loop */
         }
 
-        DEBUG_PRINTF("FIFO content: %x %x %x %x %x\n",buff[0],buff[1],buff[2],buff[3],buff[4]);
+        /* sanity check */
+        if (buff[0] > LGW_PKT_FIFO_SIZE) {
+            DEBUG_PRINTF("WARNING: %u = INVALID NUMBER OF PACKETS TO FETCH, ABORTING\n", buff[0]);
+            break;
+        }
+
+        DEBUG_PRINTF("FIFO content: %x %x %x %x %x\n", buff[0], buff[1], buff[2], buff[3], buff[4]);
 
         p->size = buff[4];
         sz = p->size;
@@ -1053,6 +1131,10 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
 
         /* process metadata */
         p->if_chain = buff[sz+0];
+        if (p->if_chain >= LGW_IF_CHAIN_NB) {
+            DEBUG_PRINTF("WARNING: %u NOT A VALID IF_CHAIN NUMBER, ABORTING\n", p->if_chain);
+            break;
+        }
         ifmod = ifmod_config[p->if_chain];
         DEBUG_PRINTF("[%d %d]\n", p->if_chain, ifmod);
 
@@ -1162,10 +1244,18 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data) {
         } else if (ifmod == IF_FSK_STD) {
             DEBUG_MSG("Note: FSK packet\n");
             switch(stat_fifo & 0x07) {
-                case 5: p->status = STAT_CRC_OK; break;
-                case 7: p->status = STAT_CRC_BAD; break;
-                case 1: p->status = STAT_NO_CRC; break;
-                default: p->status = STAT_UNDEFINED;
+                case 5:
+                    p->status = STAT_CRC_OK;
+                    break;
+                case 7:
+                    p->status = STAT_CRC_BAD;
+                    break;
+                case 1:
+                    p->status = STAT_NO_CRC;
+                    break;
+                default:
+                    p->status = STAT_UNDEFINED;
+                    break;
             }
             p->modulation = MOD_FSK;
             p->snr = -128.0;
@@ -1557,71 +1647,69 @@ const char* lgw_version_info() {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-uint32_t lgw_time_on_air(struct lgw_pkt_tx_s *packet, bool isBeacon) {
+uint32_t lgw_time_on_air(struct lgw_pkt_tx_s *packet) {
+    int32_t val;
     uint8_t SF, H, DE;
     uint16_t BW;
     uint32_t payloadSymbNb, Tpacket;
-    double Tsym, Tpreamble, Tpayload;
+    double Tsym, Tpreamble, Tpayload, Tfsk;
 
     if (packet == NULL) {
         DEBUG_MSG("ERROR: Failed to compute time on air, wrong parameter\n");
         return 0;
     }
 
-    switch (packet->bandwidth) {
-        case BW_125KHZ:
-            BW = 125;
-            break;
-        case BW_250KHZ:
-            BW = 250;
-            break;
-        case BW_500KHZ:
-            BW = 500;
-            break;
-        default:
-            DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported bandwidth (%u)\n", packet->bandwidth);
+    if (packet->modulation == MOD_LORA) {
+        /* Get bandwidth */
+        val = lgw_bw_getval(packet->bandwidth);
+        if (val != -1) {
+            BW = (uint16_t)(val / 1E3);
+        } else {
+            DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported bandwidth (0x%02X)\n", packet->bandwidth);
             return 0;
-    }
+        }
 
-    switch (packet->datarate) {
-        case DR_LORA_SF7:
-            SF = 7;
-            break;
-        case DR_LORA_SF8:
-            SF = 8;
-            break;
-        case DR_LORA_SF9:
-            SF = 9;
-            break;
-        case DR_LORA_SF10:
-            SF = 10;
-            break;
-        case DR_LORA_SF11:
-            SF = 11;
-            break;
-        case DR_LORA_SF12:
-            SF = 12;
-            break;
-        default:
-            DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported datarate (%u)\n", packet->datarate);
+        /* Get datarate */
+        val = lgw_sf_getval(packet->datarate);
+        if (val != -1) {
+            SF = (uint8_t)val;
+        } else {
+            DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported datarate (0x%02X)\n", packet->datarate);
             return 0;
+        }
+
+        /* Duration of 1 symbol */
+        Tsym = pow(2, SF) / BW;
+
+        /* Duration of preamble */
+        Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
+
+        /* Duration of payload */
+        H = (packet->no_header==false) ? 0 : 1; /* header is always enabled, except for beacons */
+        DE = (SF >= 11) ? 1 : 0; /* Low datarate optimization enabled for SF11 and SF12 */
+
+        payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16 - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
+
+        Tpayload = payloadSymbNb * Tsym;
+
+        /* Duration of packet */
+        Tpacket = Tpreamble + Tpayload;
+    } else if (packet->modulation == MOD_FSK) {
+        /* PREAMBLE + SYNC_WORD + PKT_LEN + PKT_PAYLOAD + CRC
+                PREAMBLE: default 5 bytes
+                SYNC_WORD: default 3 bytes
+                PKT_LEN: 1 byte (variable length mode)
+                PKT_PAYLOAD: x bytes
+                CRC: 0 or 2 bytes
+        */
+        Tfsk = (8 * (double)(packet->preamble + fsk_sync_word_size + 1 + packet->size + ((packet->no_crc == true) ? 0 : 2)) / (double)packet->datarate) * 1E3;
+
+        /* Duration of packet */
+        Tpacket = (uint32_t)Tfsk + 1; /* add margin for rounding */
+    } else {
+        Tpacket = 0;
+        DEBUG_PRINTF("ERROR: Cannot compute time on air for this packet, unsupported modulation (0x%02X)\n", packet->modulation);
     }
-
-    /* Duration of 1 symbol */
-    Tsym = pow(2, SF) / BW;
-
-    /* Duration of preamble */
-    Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
-
-    /* Duration of payload */
-    H = (isBeacon==false) ? 0 : 1; /* header is always enabled, except for beacons */
-    DE = (SF >= 11) ? 1 : 0; /* Low datarate optimization enabled for SF11 and SF12 */
-
-    payloadSymbNb = 8 + (ceil((double)(8*packet->size - 4*SF + 28 + 16 - 20*H) / (double)(4*(SF - 2*DE))) * (packet->coderate + 4)); /* Explicitely cast to double to keep precision of the division */
-
-    Tpayload = payloadSymbNb * Tsym;
-
-    Tpacket = Tpreamble + Tpayload;
 
     return Tpacket;
 }

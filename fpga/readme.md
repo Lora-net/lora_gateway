@@ -16,13 +16,19 @@ Reference Design board (SX1301AP2-PCB_E336) flash memory.
 
 The different images contain the following features:
 
-* SX1301_FPGA_125K_NOTCH_LBT_bitmap_v27.bin:
-    - 125K Notch filter for TX
-    - Listen-Before-Talk
+* SX1301_FPGA_200K_NOTCH_LBT_SPECTRAL_SCAN_863_v33.hex:
+    - 200KHz Notch filter for TX (not programmable)
+    - Listen-Before-Talk for 863+MHz frequency range
+    - Background Spectral Scan (limited)
 
-* SX1301_FPGA_125K_NOTCH_SPECTRAL_SCAN_bitmap_v27.bin:
-    - 125K Notch filter for TX
-    - Background Spectral Scan
+* SX1301_FPGA_200K_NOTCH_LBT_SPECTRAL_SCAN_915_v33.hex:
+    - 200KHz Notch filter for TX (not programmable)
+    - Listen-Before-Talk for 915+MHz frequency range
+    - Background Spectral Scan (limited)
+
+* SX1301_FPGA_NOTCH_PROG_SPECTRAL_SCAN_v31.hex:
+    - Programmable notch filter for TX
+    - Background Spectral Scan (full)
 
 2. Usage
 --------

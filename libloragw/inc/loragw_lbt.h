@@ -42,13 +42,9 @@ int lbt_setconf(struct lgw_conf_lbt_s * conf);
 
 /**
 @brief Configure the concentrator for LBT feature
-@param rf_freq frequency in Hz of the first LBT channel
-@param rssi_target RSSI threshold used to determine if LBT channel is busy or not
-@param scan_time_us duration of channel activity scanning, in microseconds
-@param nb_channel number of LBT channels
 @return LGW_LBT_ERROR id the operation failed, LGW_LBT_SUCCESS else
 */
-int lbt_setup(uint32_t rf_freq, uint8_t rssi_target, uint16_t scan_time_us, uint8_t nb_channel);
+int lbt_setup(void);
 
 /**
 @brief Start the LBT FSM
@@ -63,6 +59,12 @@ int lbt_start(void);
 @return LGW_LBT_ERROR id the operation failed, LGW_LBT_SUCCESS else
 */
 int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed);
+
+/**
+@brief Check if LBT is enabled
+@return true if enabled, false otherwise
+*/
+bool lbt_is_enabled(void);
 
 #endif
 /* --- EOF ------------------------------------------------------------------ */

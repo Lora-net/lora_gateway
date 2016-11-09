@@ -132,8 +132,9 @@ int parse_SX1301_configuration(const char * conf_file) {
     }
     MSG("INFO: lorawan_public %d, clksrc %d\n", boardconf.lorawan_public, boardconf.clksrc);
     /* all parameters parsed, submitting configuration to the HAL */
-        if (lgw_board_setconf(boardconf) != LGW_HAL_SUCCESS) {
-                MSG("WARNING: Failed to configure board\n");
+    if (lgw_board_setconf(boardconf) != LGW_HAL_SUCCESS) {
+        MSG("ERROR: Failed to configure board\n");
+        return -1;
     }
 
     /* set configuration for RF chains */
@@ -173,14 +174,20 @@ int parse_SX1301_configuration(const char * conf_file) {
             val = json_object_dotget_value(conf, param_name);
             if (json_value_get_type(val) == JSONBoolean) {
                 rfconf.tx_enable = (bool)json_value_get_boolean(val);
+                if (rfconf.tx_enable == true) {
+                    /* tx notch filter frequency to be set */
+                    snprintf(param_name, sizeof param_name, "radio_%i.tx_notch_freq", i);
+                    rfconf.tx_notch_freq = (uint32_t)json_object_dotget_number(conf, param_name);
+                }
             } else {
                 rfconf.tx_enable = false;
             }
-            MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable);
+            MSG("INFO: radio %i enabled (type %s), center frequency %u, RSSI offset %f, tx enabled %d, tx_notch_freq %u\n", i, str, rfconf.freq_hz, rfconf.rssi_offset, rfconf.tx_enable, rfconf.tx_notch_freq);
         }
         /* all parameters parsed, submitting configuration to the HAL */
         if (lgw_rxrf_setconf(i, rfconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for radio %i\n", i);
+            MSG("ERROR: invalid configuration for radio %i\n", i);
+            return -1;
         }
     }
 
@@ -213,7 +220,8 @@ int parse_SX1301_configuration(const char * conf_file) {
         }
         /* all parameters parsed, submitting configuration to the HAL */
         if (lgw_rxif_setconf(i, ifconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for LoRa multi-SF channel %i\n", i);
+            MSG("ERROR: invalid configuration for Lora multi-SF channel %i\n", i);
+            return -1;
         }
     }
 
@@ -254,7 +262,8 @@ int parse_SX1301_configuration(const char * conf_file) {
             MSG("INFO: LoRa standard channel enabled, radio %i selected, IF %i Hz, %u Hz bandwidth, SF %u\n", ifconf.rf_chain, ifconf.freq_hz, bw, sf);
         }
         if (lgw_rxif_setconf(8, ifconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for LoRa standard channel\n");
+            MSG("ERROR: invalid configuration for Lora standard channel\n");
+            return -1;
         }
     }
 
@@ -288,7 +297,8 @@ int parse_SX1301_configuration(const char * conf_file) {
             MSG("INFO: FSK channel enabled, radio %i selected, IF %i Hz, %u Hz bandwidth, %u bps datarate\n", ifconf.rf_chain, ifconf.freq_hz, bw, ifconf.datarate);
         }
         if (lgw_rxif_setconf(9, ifconf) != LGW_HAL_SUCCESS) {
-            MSG("WARNING: invalid configuration for FSK channel\n");
+            MSG("ERROR: invalid configuration for FSK channel\n");
+            return -1;
         }
     }
     json_value_free(root_val);

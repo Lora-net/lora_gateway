@@ -45,14 +45,15 @@ Maintainer: Sylvain Miermont
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
-#define DEFAULT_RSSI_OFFSET 0.0
-#define NB_CAL_MAX          100
-#define MCU_AGC             1
-#define MCU_AGC_FW_BYTE     8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
-#define FW_VERSION_ADDR     0x20
-#define FW_VERSION_CAL      2
-#define RAM_SIZE            4096
-#define FREQ_SIG_NORM       0.078125
+#define DEFAULT_TX_NOTCH_FREQ   129E3
+#define DEFAULT_RSSI_OFFSET     0.0
+#define NB_CAL_MAX              100
+#define MCU_AGC                 1
+#define MCU_AGC_FW_BYTE         8192 /* size of the firmware IN BYTES (= twice the number of 14b words) */
+#define FW_VERSION_ADDR         0x20
+#define FW_VERSION_CAL          2
+#define RAM_SIZE                4096
+#define FREQ_SIG_NORM           0.078125
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
@@ -262,7 +263,7 @@ int main(int argc, char **argv)
     printf("Number of calibration iterations: %d\n",nb_cal);
     printf("Calibration command: brd: %d, chip: %d, dac: %d\n\n", cal_cmd >> 6, 1257-2*((cal_cmd & 0x20) >> 5), 2+((cal_cmd & 0x10) >> 4));
 
-    x = lgw_connect();
+    x = lgw_connect(false, DEFAULT_TX_NOTCH_FREQ);
     if (x == -1) {
         printf("ERROR: FAIL TO CONNECT BOARD\n");
         return -1;
@@ -283,8 +284,8 @@ int main(int argc, char **argv)
     lgw_reg_w(LGW_RADIO_RST,0);
 
     /* setup the radios */
-    setup_sx125x(0, clocksource, true, radio_type, fa);
-    setup_sx125x(1, clocksource, false, radio_type, fb);
+    lgw_setup_sx125x(0, clocksource, true, radio_type, fa);
+    lgw_setup_sx125x(1, clocksource, false, radio_type, fb);
 
     /* Set GPIO 4 high for calibration */
     lgw_reg_w(LGW_GPIO_MODE,31); /* Set all GPIOs as output */
