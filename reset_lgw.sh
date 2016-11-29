@@ -1,7 +1,7 @@
 #!/bin/sh
 
-# This script is intended to be used on IoT Starter Kit platform only, it
-# performs the following actions:
+# This script is intended to be used on IoT Starter Kit platform, it performs
+# the following actions:
 #       - export/unpexort GPIO7 used to reset the SX1301 chip
 #
 # Usage examples:
@@ -9,7 +9,14 @@
 #       ./reset_lgw.sh start
 
 # The reset pin of SX1301 is wired with RPi GPIO7
-IOT_SK_SX1301_RESET_PIN=7
+# If used on another platform, the GPIO number can be given as parameter.
+if [ -z "$2" ]; then 
+    IOT_SK_SX1301_RESET_PIN=7
+else
+    IOT_SK_SX1301_RESET_PIN=$2
+fi
+
+echo "Accessing concentrator reset pin through GPIO$IOT_SK_SX1301_RESET_PIN..."
 
 WAIT_GPIO() {
     sleep 0.1
@@ -47,7 +54,7 @@ case "$1" in
     iot_sk_term
     ;;
     *)
-    echo "Usage: $0 {start|stop}"
+    echo "Usage: $0 {start|stop} [<gpio number>]"
     exit 1
     ;;
 esac

@@ -16,15 +16,18 @@ Reference Design board (SX1301AP2-PCB_E336) flash memory.
 
 The different images contain the following features:
 
+* SX1301_FPGA_200K_NOTCH_LBT_SPECTRAL_SCAN_915_v33.hex:
+    - 200KHz Notch filter for TX (not programmable)
+    - Listen-Before-Talk for 915+MHz frequency range (Japan)
+    - Background Spectral Scan (limited)
+
 * SX1301_FPGA_200K_NOTCH_LBT_SPECTRAL_SCAN_863_v33.hex:
     - 200KHz Notch filter for TX (not programmable)
     - Listen-Before-Talk for 863+MHz frequency range
     - Background Spectral Scan (limited)
-
-* SX1301_FPGA_200K_NOTCH_LBT_SPECTRAL_SCAN_915_v33.hex:
-    - 200KHz Notch filter for TX (not programmable)
-    - Listen-Before-Talk for 915+MHz frequency range
-    - Background Spectral Scan (limited)
+Note: This image is the same as the 915+MHz version. It is just meant for
+testing "Japan-like" LBT feature on a EU868 board. It does not provide certified
+LBT for European band.
 
 * SX1301_FPGA_NOTCH_PROG_SPECTRAL_SCAN_v31.hex:
     - Programmable notch filter for TX

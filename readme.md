@@ -70,6 +70,12 @@ chip through GPIO, before starting any application using the concentrator.
 4. Changelog
 -------------
 
+### v4.1.1 ###
+
+* HAL: Fixed bug in "Listen-Before-Talk" which was preventing from configuring
+the Scan Time to 5ms.
+* MISC: Added GPIO number to reset_lgw.sh command arguments.
+
 ### v4.1.0 ###
 
 * HAL: Reworked "Listen-Before-Talk" feature to have more flexibility to define

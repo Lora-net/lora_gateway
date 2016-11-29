@@ -177,7 +177,7 @@ int lbt_setup(void) {
             DEBUG_PRINTF("ERROR: Failed to configure FPGA for LBT channel %d (freq offset)\n", i);
             return LGW_LBT_ERROR;
         }
-        if (lbt_channel_cfg[i].freq_hz == 5000) { /* configured to 128 by default */
+        if (lbt_channel_cfg[i].scan_time_us == 5000) { /* configured to 128 by default */
             x = lgw_fpga_reg_w(LGW_FPGA_LBT_SCAN_TIME_CH0+i, 1);
             if (x != LGW_REG_SUCCESS) {
                 DEBUG_PRINTF("ERROR: Failed to configure FPGA for LBT channel %d (freq offset)\n", i);
