@@ -144,6 +144,13 @@ int lgw_fpga_configure(uint32_t tx_notch_freq) {
         return LGW_REG_ERROR;
     }
 
+    /* Required for Semtech AP2 reference design */
+    x  = lgw_fpga_reg_w(LGW_FPGA_CTRL_INVERT_IQ, 1);
+    if (x != LGW_REG_SUCCESS) {
+        DEBUG_MSG("ERROR: Failed to configure FPGA polarity\n");
+        return LGW_REG_ERROR;
+    }
+
     /* Configure TX notch filter */
     if (tx_filter_support == true) {
         notch_offset_reg = (32E6 / (2*tx_notch_freq)) - 64;

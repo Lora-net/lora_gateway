@@ -70,6 +70,12 @@ chip through GPIO, before starting any application using the concentrator.
 4. Changelog
 -------------
 
+### v4.1.2 ###
+
+* HAL: Changed configuration of IQ polarity of FPGA for TX to comply with FPGA
+version greater than v27. (Only required for AP2 Semtech reference design)
+* HAL: Updated default LoRa preamble size according to LoRaWAN spec.
+
 ### v4.1.1 ###
 
 * HAL: Fixed bug in "Listen-Before-Talk" which was preventing from configuring

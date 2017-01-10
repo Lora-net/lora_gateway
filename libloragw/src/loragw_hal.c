@@ -69,8 +69,8 @@ Maintainer: Sylvain Miermont
 #define AGC_CMD_WAIT        16
 #define AGC_CMD_ABORT       17
 
-#define MIN_LORA_PREAMBLE   4
-#define STD_LORA_PREAMBLE   6
+#define MIN_LORA_PREAMBLE   6
+#define STD_LORA_PREAMBLE   8
 #define MIN_FSK_PREAMBLE    3
 #define STD_FSK_PREAMBLE    5
 
