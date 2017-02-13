@@ -70,6 +70,18 @@ chip through GPIO, before starting any application using the concentrator.
 4. Changelog
 -------------
 
+### v4.1.3 ###
+
+* HAL: Reference clock frequency error improvement: The lora_gateway HAL has
+been updated (3 registers changed) to improve the performance of all gateways
+based on SX130x. The fix greatly improves the reception of packet at SF12, when
+the frequency offset of the incoming packet is large (mostly below -20ppm of
+frequency offset).
+
+WARNING: Systems which do not have the patch will be more prone to packet loss
+over time, when the crystals of the end-devices will be ageing and have more
+frequency offset.
+
 ### v4.1.2 ###
 
 * HAL: Changed configuration of IQ polarity of FPGA for TX to comply with FPGA
