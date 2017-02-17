@@ -74,8 +74,6 @@ Maintainer: Sylvain Miermont
 #define MIN_FSK_PREAMBLE    3
 #define STD_FSK_PREAMBLE    5
 
-#define TX_START_DELAY      1500
-
 #define RSSI_MULTI_BIAS     -35 /* difference between "multi" modem RSSI offset and "stand-alone" modem RSSI offset */
 #define RSSI_FSK_POLY_0     60 /* polynomiam coefficients to linearize FSK RSSI */
 #define RSSI_FSK_POLY_1     1.5351
@@ -158,6 +156,12 @@ static int8_t cal_offset_a_i[8]; /* TX I offset for radio A */
 static int8_t cal_offset_a_q[8]; /* TX Q offset for radio A */
 static int8_t cal_offset_b_i[8]; /* TX I offset for radio B */
 static int8_t cal_offset_b_q[8]; /* TX Q offset for radio B */
+
+/* -------------------------------------------------------------------------- */
+/* --- INTERNAL SHARED VARIABLES -------------------------------------------- */
+
+/* TX start delay adjusted for the concentrator board used */
+uint16_t lgw_i_tx_start_delay_us = 1500; /* shared with LBT module */
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
@@ -328,7 +332,7 @@ void lgw_constant_adjust(void) {
     lgw_reg_w(LGW_FSK_PATTERN_TIMEOUT_CFG,128); /* sync timeout (allow 8 bytes preamble + 8 bytes sync word, default 0 */
 
     /* TX general parameters */
-    lgw_reg_w(LGW_TX_START_DELAY, TX_START_DELAY); /* default 0 */
+    lgw_reg_w(LGW_TX_START_DELAY, (int32_t)lgw_i_tx_start_delay_us); /* default 0 */
 
     /* TX LoRa */
     // lgw_reg_w(LGW_TX_MODE,0); /* default 0 */
@@ -674,6 +678,7 @@ int lgw_start(void) {
     uint8_t cal_cmd;
     uint16_t cal_time;
     uint8_t cal_status;
+    enum lgw_brd_version_e brd_version = LGW_BRD_VERSION_UNKNOWN;
 
     uint64_t fsk_sync_word_reg;
 
@@ -685,6 +690,24 @@ int lgw_start(void) {
     if (reg_stat == LGW_REG_ERROR) {
         DEBUG_MSG("ERROR: FAIL TO CONNECT BOARD\n");
         return LGW_HAL_ERROR;
+    }
+
+    /* Adjust parameters which depends on the concentrator board version */
+    reg_stat = lgw_brd_version(&brd_version);
+    if ((reg_stat == LGW_REG_ERROR) || (brd_version == LGW_BRD_VERSION_UNKNOWN)) {
+        DEBUG_MSG("ERROR: FAIL TO GET BOARD VERSION\n");
+        return LGW_HAL_ERROR;
+    }
+    switch (brd_version) {
+        case LGW_BRD_VERSION_1_0:
+            lgw_i_tx_start_delay_us = 1495; /* adjusted to send Class-B beacons at 1500µs after PPS +/-1µs */
+            break;
+        case LGW_BRD_VERSION_1_5:
+            lgw_i_tx_start_delay_us = 1494; /* adjusted to send Class-B beacons at 1500µs after PPS +/-1µs */
+            break;
+        default:
+            /* nothing to do */
+            break;
     }
 
     /* reset the registers (also shuts the radios down) */
@@ -1417,10 +1440,10 @@ int lgw_send(struct lgw_pkt_tx_s pkt_data) {
     buff[2] = 0xFF & part_frac; /* Least Significant Byte */
 
     /* metadata 3 to 6, timestamp trigger value */
-    /* TX state machine must be triggered at T0 - TX_START_DELAY for packet to start being emitted at T0 */
+    /* TX state machine must be triggered at (T0 - lgw_i_tx_start_delay_us) for packet to start being emitted at T0 */
     if (pkt_data.tx_mode == TIMESTAMPED)
     {
-        count_trig = pkt_data.count_us - TX_START_DELAY;
+        count_trig = pkt_data.count_us - (uint32_t)lgw_i_tx_start_delay_us;
         buff[3] = 0xFF & (count_trig >> 24);
         buff[4] = 0xFF & (count_trig >> 16);
         buff[5] = 0xFF & (count_trig >> 8);
@@ -1687,7 +1710,7 @@ uint32_t lgw_time_on_air(struct lgw_pkt_tx_s *packet) {
         Tsym = pow(2, SF) / BW;
 
         /* Duration of preamble */
-        Tpreamble = (8 + 4.25) * Tsym; /* 8 programmed symbols in preamble */
+        Tpreamble = ((double)(packet->preamble) + 4.25) * Tsym;
 
         /* Duration of payload */
         H = (packet->no_header==false) ? 0 : 1; /* header is always enabled, except for beacons */

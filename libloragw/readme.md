@@ -53,21 +53,24 @@ use the LoRa concentrator:
 For an standard application, include only this module.
 The use of this module is detailed on the usage section.
 
-/!\ When sending a packet, there is a 1.5 ms delay for the analog circuitry to
-start and be stable (TX_START_DELAY).
+/!\ When sending a packet, there is a delay (approx 1.5ms) for the analog
+circuitry to start and be stable. This delay is adjusted by the HAL depending
+on the board version (lgw_i_tx_start_delay_us).
 
-In 'timestamp' mode, this is transparent: the modem is started 1.5ms before the
-user-set timestamp value is reached, the preamble of the packet start right when
-the internal timestamp counter reach target value.
+In 'timestamp' mode, this is transparent: the modem is started
+lgw_i_tx_start_delay_us microseconds before the user-set timestamp value is
+reached, the preamble of the packet start right when the internal timestamp
+counter reach target value.
 
 In 'immediate' mode, the packet is emitted as soon as possible: transferring the
 packet (and its parameters) from the host to the concentrator takes some time,
-then there is the TX_START_DELAY, then the packet is emitted.
+then there is the lgw_i_tx_start_delay_us, then the packet is emitted.
 
-In 'triggered' mode (aka PPS/GPS mode), the packet, typically a beacon, is 
-emitted 1.5ms after a rising edge of the trigger signal. Because there is no
-way to anticipate the triggering event and start the analog circuitry
-beforehand, that delay must be taken into account in the protocol.
+In 'triggered' mode (aka PPS/GPS mode), the packet, typically a beacon, is
+emitted lgw_i_tx_start_delay_us microsenconds after a rising edge of the
+trigger signal. Because there is no way to anticipate the triggering event and
+start the analog circuitry beforehand, that delay must be taken into account in
+the protocol.
 
 ### 2.2. loragw_reg ###
 
@@ -143,25 +146,28 @@ The internal concentrator counter is used to timestamp incoming packets and to
 triggers outgoing packets with a microsecond accuracy.
 In some cases, it might be useful to be able to transform that internal 
 timestamp (that is independent for each concentrator running in a typical 
-networked system) into an absolute UTC time.
+networked system) into an absolute GPS time.
 
 In a typical implementation a GPS specific thread will be called, doing the
 following things after opening the serial port:
 
 * blocking reads on the serial port (using system read() function)
-* parse NMEA sentences (using lgw_parse_nmea)
+* parse UBX messages (using lgw_parse_ubx) to get actual native GPS time
+* parse NMEA sentences (using lgw_parse_nmea) to get location and UTC time
+Note: the RMC sentence gives UTC time, not native GPS time.
 
-And each time an RMC sentence has been received:
+And each time an NAV-TIMEGPS UBX message has been received:
 
 * get the concentrator timestamp (using lgw_get_trigcnt, mutex needed to 
   protect access to the concentrator)
-* get the UTC time contained in the NMEA sentence (using lgw_gps_get)
+* get the GPS time contained in the UBX message (using lgw_gps_get)
 * call the lgw_gps_sync function (use mutex to protect the time reference that 
   should be a global shared variable).
 
 Then, in other threads, you can simply used that continuously adjusted time 
-reference to convert internal timestamps to UTC time (using lgw_cnt2utc) or 
-the other way around (using lgw_utc2cnt).
+reference to convert internal timestamps to GPS time (using lgw_cnt2gps) or
+the other way around (using lgw_gps2cnt). Inernal concentrator timestamp can
+also be converted to/from UTC time using lgw_cnt2utc/lgw_utc2cnt functions.
 
 ### 2.6. loragw_radio ###
 
@@ -352,20 +358,13 @@ sudo to run all your programs (eg. `sudo ./test_loragw_gps`).
 
 In the current revision, the library only reads data from the serial port, 
 expecting to receive NMEA frames that are generally sent by GPS receivers as 
-soon as they are powered up.
+soon as they are powered up, and UBX messages which are proprietary to u-blox
+modules.
 
-The GPS receiver **MUST** send RMC NMEA sentences (starting with "$G<any 
-character>RMC") shortly after sending a PPS pulse on to allow internal 
-concentrator timestamps to be converted to absolute UTC time.
-If the GPS receiver sends a GGA sentence, the gateway 3D position will also be 
-available.
-
-The PPS pulse must be sent to the pin 22 of connector CONN400 on the Semtech 
-FPGA-based nano-concentrator board. Ground is available on pins 2 and 12 of 
-the same connector.
-The pin is loaded by an FPGA internal pull-down, and the signal level coming 
-in the FPGA must be 3.3V.
-Timing is captured on the rising edge of the PPS signal.
+The GPS receiver **MUST** send UBX messages shortly after sending a PPS pulse
+on to allow internal concentrator timestamps to be converted to absolute GPS time.
+If the GPS receiver sends a GGA NMEA sentence, the gateway 3D position will
+also be available.
 
 5. Usage
 --------

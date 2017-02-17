@@ -359,10 +359,24 @@ int lgw_receive(uint8_t max_pkt, struct lgw_pkt_rx_s *pkt_data);
 @param pkt_data structure containing the data and metadata for the packet to send
 @return LGW_HAL_ERROR id the operation failed, LGW_HAL_SUCCESS else
 
-/!\ When sending a packet, there is a 1.5 ms delay for the analog circuitry to start and be stable (TX_START_DELAY).
-In 'timestamp' mode, this is transparent: the modem is started 1.5ms before the user-set timestamp value is reached, the preamble of the packet start right when the internal timestamp counter reach target value.
-In 'immediate' mode, the packet is emitted as soon as possible: transferring the packet (and its parameters) from the host to the concentrator takes some time, then there is the TX_START_DELAY, then the packet is emitted.
-In 'triggered' mode (aka PPS/GPS mode), the packet, typically a beacon, is emitted 1.5ms after a rising edge of the trigger signal. Because there is no way to anticipate the triggering event and start the analog circuitry beforehand, that delay must be taken into account in the protocol.
+/!\ When sending a packet, there is a delay (approx 1.5ms) for the analog
+circuitry to start and be stable. This delay is adjusted by the HAL depending
+on the board version (lgw_i_tx_start_delay_us).
+
+In 'timestamp' mode, this is transparent: the modem is started
+lgw_i_tx_start_delay_us microseconds before the user-set timestamp value is
+reached, the preamble of the packet start right when the internal timestamp
+counter reach target value.
+
+In 'immediate' mode, the packet is emitted as soon as possible: transferring the
+packet (and its parameters) from the host to the concentrator takes some time,
+then there is the lgw_i_tx_start_delay_us, then the packet is emitted.
+
+In 'triggered' mode (aka PPS/GPS mode), the packet, typically a beacon, is
+emitted lgw_i_tx_start_delay_us microsenconds after a rising edge of the
+trigger signal. Because there is no way to anticipate the triggering event and
+start the analog circuitry beforehand, that delay must be taken into account in
+the protocol.
 */
 int lgw_send(struct lgw_pkt_tx_s pkt_data);
 

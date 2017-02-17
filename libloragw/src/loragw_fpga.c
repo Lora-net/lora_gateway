@@ -94,7 +94,7 @@ const struct lgw_reg_s fpga_regs[LGW_FPGA_TOTALREGS] = {
 };
 
 /* -------------------------------------------------------------------------- */
-/* --- PRIVATE VARIABLES ---------------------------------------------------- */
+/* --- INTERNAL SHARED VARIABLES -------------------------------------------- */
 
 extern void *lgw_spi_target; /*! generic pointer to the SPI device */
 extern uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */

@@ -41,6 +41,12 @@ struct lgw_reg_s {
     int32_t dflt;        /*!< register default value */
 };
 
+enum lgw_brd_version_e {
+    LGW_BRD_VERSION_1_0,    /*!< Gateway v1.0 (no FPGA) */
+    LGW_BRD_VERSION_1_5,    /*!< Gateway v1.5 (with FPGA) */
+    LGW_BRD_VERSION_UNKNOWN /*!< Unknown */
+};
+
 /* -------------------------------------------------------------------------- */
 /* --- INTERNAL SHARED FUNCTIONS -------------------------------------------- */
 
@@ -407,6 +413,12 @@ int lgw_connect(bool spi_only, uint32_t tx_notch_freq);
 @return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
 */
 int lgw_disconnect(void);
+
+/**
+@brief Get LoRa concentrator board version
+@return status of register operation (LGW_REG_SUCCESS/LGW_REG_ERROR)
+*/
+int lgw_brd_version(enum lgw_brd_version_e * brd_version);
 
 /**
 @brief Use the soft-reset register to put the concentrator in initial state
