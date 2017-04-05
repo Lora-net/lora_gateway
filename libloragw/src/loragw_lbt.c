@@ -215,7 +215,7 @@ int lbt_start(void) {
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
 
-int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
+int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, uint16_t tx_start_delay, bool * tx_allowed) {
     int i;
     int32_t val;
     uint32_t tx_start_time = 0;
@@ -255,7 +255,7 @@ int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
                 break;
             case ON_GPS:
                 DEBUG_MSG("tx_mode                    = ON_GPS\n");
-                tx_start_time = (sx1301_time + (uint32_t)lgw_i_tx_start_delay_us + 1000000) & LBT_TIMESTAMP_MASK;
+                tx_start_time = (sx1301_time + (uint32_t)tx_start_delay + 1000000) & LBT_TIMESTAMP_MASK;
                 break;
             case IMMEDIATE:
                 DEBUG_MSG("ERROR: tx_mode IMMEDIATE is not supported when LBT is enabled\n");
@@ -267,7 +267,7 @@ int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed) {
         /* Select LBT Channel corresponding to required TX frequency */
         lbt_channel_decod_1 = -1;
         lbt_channel_decod_2 = -1;
-        if (pkt_data->bandwidth == BW_125KHZ){
+        if (pkt_data->bandwidth == BW_125KHZ) {
             for (i=0; i<lbt_nb_active_channel; i++) {
                 if (is_equal_freq(pkt_data->freq_hz, lbt_channel_cfg[i].freq_hz) == true) {
                     DEBUG_PRINTF("LBT: select channel %d (%u Hz)\n", i, lbt_channel_cfg[i].freq_hz);

@@ -58,7 +58,7 @@ int lbt_start(void);
 @param tx_allowed pointer to receive permission for transmission
 @return LGW_LBT_ERROR id the operation failed, LGW_LBT_SUCCESS else
 */
-int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, bool * tx_allowed);
+int lbt_is_channel_free(struct lgw_pkt_tx_s * pkt_data, uint16_t tx_start_delay, bool * tx_allowed);
 
 /**
 @brief Check if LBT is enabled

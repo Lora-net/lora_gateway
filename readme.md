@@ -70,6 +70,12 @@ chip through GPIO, before starting any application using the concentrator.
 4. Changelog
 -------------
 
+### v5.0.1 ###
+
+* HAL: Reworked the way the TX start delay is calculated, taking into account
+the delay introduced by TX notch filter (when enabled) and the delay linked to
+signal bandwidth separately.
+
 ### v5.0.0 ###
 
 * HAL: Changed GPS module to get native GPS time (monotonic, no leap second).

@@ -100,6 +100,11 @@ extern void *lgw_spi_target; /*! generic pointer to the SPI device */
 extern uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */
 
 /* -------------------------------------------------------------------------- */
+/* --- PRIVATE VARIABLES ---------------------------------------------------- */
+static bool tx_notch_support = false;
+static uint8_t tx_notch_offset;
+
+/* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS ---------------------------------------------------- */
 
 /* -------------------------------------------------------------------------- */
@@ -108,10 +113,25 @@ extern uint8_t lgw_spi_mux_mode; /*! current SPI mux mode used */
 /* -------------------------------------------------------------------------- */
 /* --- PUBLIC FUNCTIONS DEFINITION ------------------------------------------ */
 
+float lgw_fpga_get_tx_notch_delay(void) {
+    float tx_notch_delay;
+
+    if (tx_notch_support == false) {
+        return 0;
+    }
+
+    /* Notch filtering performed by FPGA adds a constant delay (group delay) that we need to compensate */
+    tx_notch_delay = (31.25 * ((64 + tx_notch_offset) / 2)) / 1E3; /* 32MHz => 31.25ns */
+
+    return tx_notch_delay;
+}
+
+/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
+
 int lgw_fpga_configure(uint32_t tx_notch_freq) {
     int x;
-    int32_t val, notch_offset_reg;
-    bool tx_filter_support, spectral_scan_support, lbt_support;
+    int32_t val;
+    bool spectral_scan_support, lbt_support;
 
     /* Check input parameters */
     if ((tx_notch_freq < LGW_MIN_NOTCH_FREQ) || (tx_notch_freq > LGW_MAX_NOTCH_FREQ)) {
@@ -122,16 +142,16 @@ int lgw_fpga_configure(uint32_t tx_notch_freq) {
     /* Get supported FPGA features */
     printf("INFO: FPGA supported features:");
     lgw_fpga_reg_r(LGW_FPGA_FEATURE, &val);
-    tx_filter_support = TAKE_N_BITS_FROM((uint8_t)val, 0, 1);
-    if (tx_filter_support) {
+    tx_notch_support = TAKE_N_BITS_FROM((uint8_t)val, 0, 1);
+    if (tx_notch_support == true) {
         printf(" [TX filter] ");
     }
     spectral_scan_support = TAKE_N_BITS_FROM((uint8_t)val, 1, 1);
-    if (spectral_scan_support) {
+    if (spectral_scan_support == true) {
         printf(" [Spectral Scan] ");
     }
     lbt_support = TAKE_N_BITS_FROM((uint8_t)val, 2, 1);
-    if (lbt_support) {
+    if (lbt_support == true) {
         printf(" [LBT] ");
     }
     printf("\n");
@@ -152,9 +172,9 @@ int lgw_fpga_configure(uint32_t tx_notch_freq) {
     }
 
     /* Configure TX notch filter */
-    if (tx_filter_support == true) {
-        notch_offset_reg = (32E6 / (2*tx_notch_freq)) - 64;
-        x = lgw_fpga_reg_w(LGW_FPGA_NOTCH_FREQ_OFFSET, notch_offset_reg);
+    if (tx_notch_support == true) {
+        tx_notch_offset = (32E6 / (2*tx_notch_freq)) - 64;
+        x = lgw_fpga_reg_w(LGW_FPGA_NOTCH_FREQ_OFFSET, (int32_t)tx_notch_offset);
         if (x != LGW_REG_SUCCESS) {
             DEBUG_MSG("ERROR: Failed to configure FPGA TX notch filter\n");
             return LGW_REG_ERROR;
@@ -166,10 +186,10 @@ int lgw_fpga_configure(uint32_t tx_notch_freq) {
             DEBUG_MSG("ERROR: Failed to read FPGA TX notch frequency\n");
             return LGW_REG_ERROR;
         }
-        if (val != notch_offset_reg) {
+        if (val != tx_notch_offset) {
             DEBUG_MSG("WARNING: TX notch filter frequency is not programmable (check your FPGA image)\n");
         } else {
-            DEBUG_PRINTF("INFO: TX notch filter frequency set to %u (%i)\n", tx_notch_freq, notch_offset_reg);
+            DEBUG_PRINTF("INFO: TX notch filter frequency set to %u (%i)\n", tx_notch_freq, tx_notch_offset);
         }
     }
 

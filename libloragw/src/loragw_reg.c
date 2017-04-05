@@ -389,7 +389,6 @@ const struct lgw_reg_s loregs[LGW_TOTALREGS] = {
 /* --- PRIVATE VARIABLES ---------------------------------------------------- */
 
 static int lgw_regpage = -1; /*! keep the value of the register page selected */
-static enum lgw_brd_version_e lgw_i_brd_version = LGW_BRD_VERSION_UNKNOWN; /*! detected concentrator board version */
 
 /* -------------------------------------------------------------------------- */
 /* --- INTERNAL SHARED VARIABLES -------------------------------------------- */
@@ -532,11 +531,9 @@ int lgw_connect(bool spi_only, uint32_t tx_notch_freq) {
             /* We failed to read expected FPGA version, so let's assume there is no FPGA */
             DEBUG_PRINTF("INFO: no FPGA detected or version not supported (v%u)\n", u);
             lgw_spi_mux_mode = LGW_SPI_MUX_MODE0;
-            lgw_i_brd_version = LGW_BRD_VERSION_1_0;
         } else {
             DEBUG_PRINTF("INFO: detected FPGA with SPI mux header (v%u)\n", u);
             lgw_spi_mux_mode = LGW_SPI_MUX_MODE1;
-            lgw_i_brd_version = LGW_BRD_VERSION_1_5;
             /* FPGA Soft Reset */
             lgw_spi_w(lgw_spi_target, lgw_spi_mux_mode, LGW_SPI_MUX_TARGET_FPGA, 0, 1);
             lgw_spi_w(lgw_spi_target, lgw_spi_mux_mode, LGW_SPI_MUX_TARGET_FPGA, 0, 0);
@@ -586,20 +583,6 @@ int lgw_disconnect(void) {
         DEBUG_MSG("WARNING: concentrator was already disconnected\n");
         return LGW_REG_ERROR;
     }
-}
-
-/* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
-
-/* Get concentrator board version */
-int lgw_brd_version(enum lgw_brd_version_e * brd_version) {
-    if (lgw_spi_target == NULL) {
-        DEBUG_MSG("ERROR: CONCENTRATOR UNCONNECTED\n");
-        return LGW_REG_ERROR;
-    }
-
-    *brd_version = lgw_i_brd_version;
-
-    return LGW_REG_SUCCESS;
 }
 
 /* ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ */
