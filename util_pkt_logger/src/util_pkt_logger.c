@@ -377,6 +377,7 @@ void usage(void) {
     printf("*** Library version information ***\n%s\n\n", lgw_version_info());
     printf( "Available options:\n");
     printf( " -h print this help\n");
+    printf( " -o <filename|-> log data to this file, use - for stdout\n");
     printf( " -r <int> rotate log file every N seconds (-1 disable log rotation)\n");
 }
 
