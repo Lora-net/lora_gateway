@@ -60,7 +60,6 @@ time_t now_time;
 time_t log_start_time;
 FILE * log_file = NULL;
 char log_file_name[64];
-bool use_stdout = false;
 
 /* -------------------------------------------------------------------------- */
 /* --- PRIVATE FUNCTIONS DECLARATION ---------------------------------------- */
@@ -348,15 +347,8 @@ void open_log(void) {
     strftime(iso_date,ARRAY_SIZE(iso_date),"%Y%m%dT%H%M%SZ",gmtime(&now_time)); /* format yyyymmddThhmmssZ */
     log_start_time = now_time; /* keep track of when the log was started, for log rotation */
 
-    if (strcmp(log_file_name, "") == 0) {
-        sprintf(log_file_name, "pktlog_%s_%s.csv", lgwm_str, iso_date);
-    }
+    sprintf(log_file_name, "pktlog_%s_%s.csv", lgwm_str, iso_date);
     log_file = fopen(log_file_name, "a"); /* create log file, append if file already exist */
-
-    if (use_stdout) {
-        log_file = stdout;
-        strncpy(log_file_name, "STDOUT", 64);
-    }
     if (log_file == NULL) {
         MSG("ERROR: impossible to create log file %s\n", log_file_name);
         exit(EXIT_FAILURE);
@@ -409,9 +401,8 @@ int main(int argc, char **argv)
     char fetch_timestamp[30];
     struct tm * x;
 
-
     /* parse command line options */
-    while ((i = getopt (argc, argv, "o:hr:")) != -1) {
+    while ((i = getopt (argc, argv, "hr:")) != -1) {
         switch (i) {
             case 'h':
                 usage();
@@ -425,13 +416,7 @@ int main(int argc, char **argv)
                     return EXIT_FAILURE;
                 }
                 break;
-	    case 'o':
-		if (strcmp(optarg, "-") == 0) {
-		    use_stdout = true;
-		} else {
-		    strncpy(log_file_name, optarg, 64);
-		}
-		break;
+
             default:
                 MSG("ERROR: argument parsing use -h option for help\n");
                 usage();
