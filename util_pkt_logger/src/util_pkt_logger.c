@@ -611,7 +611,7 @@ int main(int argc, char **argv)
 
         /* check time and rotate log file if necessary */
         ++time_check;
-        if (time_check >= 8) {
+        if (log_rotate_interval >= 0 && time_check >= 8) {
             time_check = 0;
             time(&now_time);
             if (difftime(now_time, log_start_time) > log_rotate_interval) {
