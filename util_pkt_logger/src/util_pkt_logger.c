@@ -377,7 +377,7 @@ void usage(void) {
     printf("*** Library version information ***\n%s\n\n", lgw_version_info());
     printf( "Available options:\n");
     printf( " -h print this help\n");
-    printf( " -o <filename|-> log data to this file, use - for stdout\n");
+    printf( " -o <filename|-> log data to this file, use - for stdout (implies -r -1)\n");
     printf( " -r <int> rotate log file every N seconds (-1 disable log rotation)\n");
 }
 
@@ -431,6 +431,7 @@ int main(int argc, char **argv)
 		} else {
 		    strncpy(log_file_name, optarg, 64);
 		}
+		log_rotate_interval = -1;
 		break;
             default:
                 MSG("ERROR: argument parsing use -h option for help\n");
