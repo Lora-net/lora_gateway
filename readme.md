@@ -381,7 +381,7 @@ revision.
 
 * Unified build environment with selectable SPI layer (Linux native or FTDI
 SPI-over-USB bridge).
-* Remove the 500 kHz limit on radio bandwith, back to the nominal 800 kHz.
+* Remove the 500 kHz limit on radio bandwidth, back to the nominal 800 kHz.
 * Renamed debug flags.
 
 5. Legal notice
