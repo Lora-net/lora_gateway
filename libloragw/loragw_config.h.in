@@ -1,0 +1,14 @@
+#ifndef _LORAGW_CONFIGURATION_H
+#define _LORAGW_CONFIGURATION_H
+
+#define LIBLORAGW_VERSION "@lora_gateway_VERSION_SHORT@"
+
+#cmakedefine01 DEBUG_AUX
+#cmakedefine01 DEBUG_SPI
+#cmakedefine01 DEBUG_REG
+#cmakedefine01 DEBUG_HAL
+#cmakedefine01 DEBUG_GPS
+#cmakedefine01 DEBUG_GPIO
+#cmakedefine01 DEBUG_LBT
+
+#endif
