@@ -131,7 +131,7 @@ static void gps_process_coords(void) {
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
 
-int main()
+int main(int argc, char *argv[])
 {
     struct sigaction sigact; /* SIGQUIT&SIGINT&SIGTERM signal handling */
 
@@ -142,6 +142,7 @@ int main()
     struct lgw_conf_rxrf_s rfconf;
 
     /* serial variables */
+    static const char *gps_tty_path = "/dev/ttyAMA0"; /* Default path the TTY port GPS is connected on */
     char serial_buff[128]; /* buffer to receive GPS data */
     size_t wr_idx = 0;     /* pointer to end of chars in buffer */
     int gps_tty_dev; /* file descriptor to the serial port of the GNSS module */
@@ -158,11 +159,14 @@ int main()
     sigaction(SIGTERM, &sigact, NULL);
 
     /* Intro message and library information */
-    printf("Beginning of test for loragw_gps.c\n");
+    if (argc >= 2 && argv[1] != NULL && *argv[1] != '\0') {
+        gps_tty_path = argv[1];
+    }
+    printf("Beginning of test for loragw_gps.c on TTY %s\n", gps_tty_path);
     printf("*** Library version information ***\n%s\n***\n", lgw_version_info());
 
     /* Open and configure GPS */
-    i = lgw_gps_enable("/dev/ttyAMA0", "ubx7", 0, &gps_tty_dev);
+    i = lgw_gps_enable(gps_tty_path, "ubx7", 0, &gps_tty_dev);
     if (i != LGW_GPS_SUCCESS) {
         printf("ERROR: IMPOSSIBLE TO ENABLE GPS\n");
         exit(EXIT_FAILURE);
