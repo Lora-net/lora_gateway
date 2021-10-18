@@ -10,7 +10,8 @@ CROSS_COMPILE ?=
 CC := $(CROSS_COMPILE)gcc
 AR := $(CROSS_COMPILE)ar
 
-CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I.
+# Modified to include SPI_DEV_PATH and SPI_SPEED macros
+CFLAGS := -O2 -Wall -Wextra -std=c99 -Iinc -I. -D'SPI_DEV_PATH="${SPI_DEV_DIR}"' -D'SPI_SPEED=${SPI_SPEED}'
 
 OBJDIR = obj
 INCLUDES = $(wildcard inc/*.h)

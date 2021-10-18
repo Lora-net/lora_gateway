@@ -12,11 +12,11 @@ compile_libloragw_for_spi_bus() {
     cd "$ROOT_DIR"
     cp -r "$ROOT_DIR/libloragw/" "$OUTPUT_DIR/$spi_bus"
 
-    echo "Finished building libloragw for sx1301 on $spi_bus in $ROOT_DIR"
+    echo "Finished building libloragw for sx1301 on $spi_bus in $OUTPUT_DIR"
 }
 
 compile_libloragw() {
-    echo "Compiling libloragw for sx1301 concentrator on all the necessary SPI buses in $ROOT_DIR"
+    echo "Compiling libloragw for sx1301 concentrator on all the necessary SPI buses in $OUTPUT_DIR"
     
     # Built outputs will be copied to this directory
     mkdir -p "$OUTPUT_DIR"
