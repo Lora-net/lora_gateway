@@ -32,9 +32,4 @@ compile_libloragw() {
     compile_libloragw_for_spi_bus spidev32766.0
 }
 
-copy_reset_script() {
-    cp "$ROOT_DIR/reset_lgw.sh" "$OUTPUT_DIR/reset_lgw.sh"
-}
-
 compile_libloragw
-copy_reset_script
