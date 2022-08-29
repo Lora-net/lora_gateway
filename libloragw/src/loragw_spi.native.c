@@ -253,7 +253,9 @@ int lgw_spi_r(void *spi_target, uint8_t spi_mux_mode, uint8_t spi_mux_target, ui
         return LGW_SPI_ERROR;
     } else {
         DEBUG_MSG("Note: SPI read success\n");
+        DEBUG_MSG("Note: SPI read data: %u \n",in_buf[command_size - 1]);
         *data = in_buf[command_size - 1];
+
         return LGW_SPI_SUCCESS;
     }
 }
