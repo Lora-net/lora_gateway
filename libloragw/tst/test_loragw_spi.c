@@ -32,7 +32,7 @@ Maintainer: Sylvain Miermont
 /* --- PRIVATE CONSTANTS ---------------------------------------------------- */
 
 #define BURST_TEST_SIZE 2500 /* >> LGW_BURST_CHUNK */
-#define TIMING_REPEAT   1    /* repeat transactions multiple times for timing characterisation */
+#define TIMING_REPEAT   100    /* repeat transactions multiple times for timing characterisation */
 
 /* -------------------------------------------------------------------------- */
 /* --- MAIN FUNCTION -------------------------------------------------------- */
@@ -61,16 +61,17 @@ int main()
         lgw_spi_r(spi_target, spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, 0x55, &data);
 
     /* burst R/W test, small bursts << LGW_BURST_CHUNK */
-    for (i = 0; i < TIMING_REPEAT; ++i)
+   /* for (i = 0; i < TIMING_REPEAT; ++i)
         lgw_spi_wb(spi_target, spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, 0x55, dataout, 16);
     for (i = 0; i < TIMING_REPEAT; ++i)
         lgw_spi_rb(spi_target, spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, 0x55, datain, 16);
 
     /* burst R/W test, large bursts >> LGW_BURST_CHUNK */
-    for (i = 0; i < TIMING_REPEAT; ++i)
+    /*for (i = 0; i < TIMING_REPEAT; ++i)
         lgw_spi_wb(spi_target, spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, 0x5A, dataout, ARRAY_SIZE(dataout));
     for (i = 0; i < TIMING_REPEAT; ++i)
         lgw_spi_rb(spi_target, spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, 0x5A, datain, ARRAY_SIZE(datain));
+	*/
 
     /* last read (blocking), just to be sure no to quit before the FTDI buffer is flushed */
     lgw_spi_r(spi_target, spi_mux_mode, LGW_SPI_MUX_TARGET_SX1301, 0x55, &data);
