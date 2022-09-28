@@ -67,7 +67,7 @@ packet (and its parameters) from the host to the concentrator takes some time,
 then there is the lgw_i_tx_start_delay_us, then the packet is emitted.
 
 In 'triggered' mode (aka PPS/GPS mode), the packet, typically a beacon, is
-emitted lgw_i_tx_start_delay_us microsenconds after a rising edge of the
+emitted lgw_i_tx_start_delay_us microseconds after a rising edge of the
 trigger signal. Because there is no way to anticipate the triggering event and
 start the analog circuitry beforehand, that delay must be taken into account in
 the protocol.
@@ -77,7 +77,7 @@ the protocol.
 This module is used to access to the LoRa concentrator registers by name instead
 of by address:
 
-* lgw_connect, to initialise and check the connection with the hardware
+* lgw_connect, to initialize and check the connection with the hardware
 * lgw_disconnect, to disconnect the hardware
 * lgw_soft_reset, to reset the whole hardware by resetting the register array
 * lgw_reg_check, to check all registers vs. their default value and output the
@@ -166,7 +166,7 @@ And each time an NAV-TIMEGPS UBX message has been received:
 
 Then, in other threads, you can simply used that continuously adjusted time 
 reference to convert internal timestamps to GPS time (using lgw_cnt2gps) or
-the other way around (using lgw_gps2cnt). Inernal concentrator timestamp can
+the other way around (using lgw_gps2cnt). Internal concentrator timestamp can
 also be converted to/from UTC time using lgw_cnt2utc/lgw_utc2cnt functions.
 
 ### 2.6. loragw_radio ###
@@ -184,7 +184,7 @@ This module is only required for SX1301AP2 reference design.
 ### 2.8. loragw_lbt ###
 
 This module contains functions to configure and use the "Listen-Before-Talk"
-feature (refered as LBT below). It depends on the loragw_fpga and loragw_radio
+feature (referred as LBT below). It depends on the loragw_fpga and loragw_radio
 modules.
 
 LBT feature is only available on SX1301AP2 reference design, which provides the
